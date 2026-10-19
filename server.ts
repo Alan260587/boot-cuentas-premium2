@@ -14,6 +14,179 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+app.use(express.text({ type: 'text/plain' }));
+
+// ============================================================================
+// MULTI-USER PRESENCE & SINGLE-ADMIN EXCLUSIVE SESSION STATE
+// ============================================================================
+const ADMIN_SECRET_KEY = '1987';
+const ADMIN_SESSION_TIMEOUT_MS = 12000; // 12s without heartbeat releases admin lock automatically
+const CLIENT_PRESENCE_TIMEOUT_MS = 18000; // 18s without heartbeat removes disconnected user
+
+interface ConnectedClient {
+  sessionId: string;
+  lastSeen: number;
+  connectedAt: number;
+}
+
+interface ActiveAdminSession {
+  sessionId: string;
+  token: string;
+  connectedAt: number;
+  lastSeen: number;
+}
+
+const connectedClients = new Map<string, ConnectedClient>();
+let activeAdminSession: ActiveAdminSession | null = null;
+
+function cleanupStaleSessions(): void {
+  const now = Date.now();
+  if (activeAdminSession && now - activeAdminSession.lastSeen > ADMIN_SESSION_TIMEOUT_MS) {
+    activeAdminSession = null;
+  }
+  for (const [id, client] of connectedClients.entries()) {
+    if (now - client.lastSeen > CLIENT_PRESENCE_TIMEOUT_MS) {
+      connectedClients.delete(id);
+    }
+  }
+}
+
+// Cleanup every 3 seconds
+setInterval(cleanupStaleSessions, 3000);
+
+function touchClient(sessionId: string): void {
+  if (!sessionId || typeof sessionId !== 'string') return;
+  const now = Date.now();
+  const existing = connectedClients.get(sessionId);
+  if (existing) {
+    existing.lastSeen = now;
+  } else {
+    connectedClients.set(sessionId, {
+      sessionId,
+      connectedAt: now,
+      lastSeen: now,
+    });
+  }
+}
+
+// Heartbeat & status sync for all connected users
+app.post('/api/session/heartbeat', (req: Request, res: Response) => {
+  cleanupStaleSessions();
+  const { sessionId, adminToken } = req.body || {};
+
+  if (sessionId && typeof sessionId === 'string') {
+    touchClient(sessionId);
+  }
+
+  let isYouAdmin = false;
+  if (
+    activeAdminSession &&
+    sessionId &&
+    activeAdminSession.sessionId === sessionId &&
+    adminToken &&
+    activeAdminSession.token === adminToken
+  ) {
+    activeAdminSession.lastSeen = Date.now();
+    isYouAdmin = true;
+  }
+
+  const isAdminOccupiedByOther = Boolean(
+    activeAdminSession && activeAdminSession.sessionId !== sessionId
+  );
+
+  res.json({
+    ok: true,
+    isYouAdmin,
+    isAdminOccupiedByOther,
+    activeUsersCount: Math.max(1, connectedClients.size),
+    scheduleConfig: serverScheduleConfig,
+  });
+});
+
+// Exclusive Single-Admin Login (only 1 administrator allowed at a time)
+app.post('/api/admin/login', (req: Request, res: Response) => {
+  cleanupStaleSessions();
+  const { sessionId, password } = req.body || {};
+
+  if (!sessionId || typeof sessionId !== 'string') {
+    return res.status(400).json({
+      ok: false,
+      reason: 'invalid_session',
+      message: 'Sesión de cliente inválida.',
+    });
+  }
+
+  touchClient(sessionId);
+
+  if (typeof password !== 'string' || password.trim() !== ADMIN_SECRET_KEY) {
+    return res.status(401).json({
+      ok: false,
+      reason: 'invalid_password',
+      message: 'Acceso incorrecto. Ingresa ****.',
+    });
+  }
+
+  // Check if another user is already connected as Admin
+  if (activeAdminSession && activeAdminSession.sessionId !== sessionId) {
+    return res.status(409).json({
+      ok: false,
+      reason: 'already_occupied',
+      message:
+        'Ya hay 1 Administrador conectado en este momento. Solo se permite un administrador activo a la vez.',
+    });
+  }
+
+  const token = `adm_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  const now = Date.now();
+  activeAdminSession = {
+    sessionId,
+    token,
+    connectedAt: now,
+    lastSeen: now,
+  };
+
+  return res.json({
+    ok: true,
+    adminToken: token,
+    sessionId,
+    isYouAdmin: true,
+    isAdminOccupiedByOther: false,
+    activeUsersCount: Math.max(1, connectedClients.size),
+  });
+});
+
+// Logout endpoint (supports both fetch JSON and navigator.sendBeacon on tab/page close)
+app.post('/api/admin/logout', (req: Request, res: Response) => {
+  cleanupStaleSessions();
+  let payload: any = req.body;
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      payload = {};
+    }
+  }
+
+  const { sessionId, adminToken, reason } = payload || {};
+
+  if (
+    activeAdminSession &&
+    sessionId &&
+    activeAdminSession.sessionId === sessionId &&
+    (!adminToken || activeAdminSession.token === adminToken)
+  ) {
+    activeAdminSession = null;
+  }
+
+  if (reason === 'page_close' && sessionId) {
+    connectedClients.delete(sessionId);
+  }
+
+  res.json({
+    ok: true,
+    activeUsersCount: Math.max(0, connectedClients.size),
+  });
+});
 
 // Initialize GoogleGenAI SDK on server side
 function getGeminiClient(): GoogleGenAI | null {

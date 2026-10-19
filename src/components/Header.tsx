@@ -11,10 +11,15 @@ import {
   Lock,
   Unlock,
   Check,
+  Users,
 } from 'lucide-react';
 import { CountryCode, UserProfile } from '../types';
 import { COUNTRIES, OFFICIAL_WHATSAPP_NUMBER, buildWhatsAppLink } from '../data/catalog';
-import { isOwnerAuthenticated, logoutOwner } from '../data/adminAuth';
+import {
+  getMultiUserAdminState,
+  logoutOwner,
+  MultiUserAdminState,
+} from '../data/adminAuth';
 import { ScheduleManagerModal } from './ScheduleManagerModal';
 import { PWAInstallModalAndButton } from './PWAInstallModalAndButton';
 
@@ -39,15 +44,19 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenChat,
   onOpenSimulator,
 }) => {
-  const [isAdminAuth, setIsAdminAuth] = useState(isOwnerAuthenticated());
+  const [adminState, setAdminState] = useState<MultiUserAdminState>(() =>
+    getMultiUserAdminState()
+  );
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   useEffect(() => {
-    const handleAuth = () => setIsAdminAuth(isOwnerAuthenticated());
+    const handleAuth = () => setAdminState(getMultiUserAdminState());
     window.addEventListener('admin_auth_state_changed', handleAuth);
     return () => window.removeEventListener('admin_auth_state_changed', handleAuth);
   }, []);
+
+  const isAdminAuth = adminState.isAuthenticated;
 
   const handleAdminLockToggle = () => {
     setIsScheduleModalOpen(true);
@@ -91,7 +100,10 @@ export const Header: React.FC<HeaderProps> = ({
                   WhatsApp {OFFICIAL_WHATSAPP_NUMBER}
                 </span>
                 <span className="hidden md:inline text-slate-600">•</span>
-                <span className="hidden md:inline text-slate-400">Asistente Comercial Oficial 24/7</span>
+                <span className="hidden md:inline-flex items-center gap-1 text-cyan-300 font-medium">
+                  <Users className="w-3 h-3" />
+                  <span>{adminState.activeUsersCount} en línea</span>
+                </span>
               </div>
             </div>
           </div>
@@ -171,27 +183,52 @@ export const Header: React.FC<HeaderProps> = ({
             <PWAInstallModalAndButton variant="header" />
 
             {/* Admin Lock / Unlock Status Toggle */}
-            <button
-              onClick={handleAdminLockToggle}
-              className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
-                isAdminAuth
-                  ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/40'
-                  : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/30'
-              }`}
-              title="Abrir Panel de Configuración de Días y Horas (****)"
-            >
-              {isAdminAuth ? (
-                <>
-                  <Unlock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Horarios (****)</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Horarios (****)</span>
-                </>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleAdminLockToggle}
+                className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all border cursor-pointer ${
+                  isAdminAuth
+                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/40'
+                    : adminState.isAdminOccupiedByOther
+                    ? 'bg-slate-900 hover:bg-slate-800 text-slate-400 border-slate-700'
+                    : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/30'
+                }`}
+                title={
+                  isAdminAuth
+                    ? 'Sesión Única de Administrador Activa (1/1) • Se cierra al cerrar la página'
+                    : adminState.isAdminOccupiedByOther
+                    ? 'Administrador conectado en otra sesión (1/1 en uso)'
+                    : 'Abrir Panel de Configuración de Días y Horas (****)'
+                }
+              >
+                {isAdminAuth ? (
+                  <>
+                    <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="hidden sm:inline">Admin Activo (****)</span>
+                  </>
+                ) : adminState.isAdminOccupiedByOther ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="hidden sm:inline">Admin (1/1 En Uso)</span>
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="hidden sm:inline">Horarios (****)</span>
+                  </>
+                )}
+              </button>
+
+              {isAdminAuth && (
+                <button
+                  onClick={() => logoutOwner('manual')}
+                  className="px-2 py-2 rounded-xl text-[11px] font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 transition-all cursor-pointer"
+                  title="Cerrar sesión de administrador inmediatamente"
+                >
+                  Salir
+                </button>
               )}
-            </button>
+            </div>
 
             {/* Share link button */}
             <button

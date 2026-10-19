@@ -20,8 +20,13 @@ import {
   formatEnabledDaysSummary,
 } from '../data/scheduleConfig';
 import { OFFICIAL_BENEFICIARY } from '../data/catalog';
-import { isOwnerAuthenticated, verifyOwnerPassword, logoutOwner } from '../data/adminAuth';
-import { Lock, KeyRound, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import {
+  getMultiUserAdminState,
+  verifyOwnerPasswordAsync,
+  logoutOwner,
+  MultiUserAdminState,
+} from '../data/adminAuth';
+import { Lock, KeyRound, Users } from 'lucide-react';
 
 interface ScheduleManagerModalProps {
   isOpen: boolean;
@@ -34,9 +39,11 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
   onClose,
   onSaved,
 }) => {
-  const [isAuth, setIsAuth] = useState(false);
+  const [adminState, setAdminState] = useState<MultiUserAdminState>(() =>
+    getMultiUserAdminState()
+  );
   const [inputPass, setInputPass] = useState('');
-  const [showPass, setShowPass] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
 
   const [config, setConfig] = useState<ScheduleConfig>(getSavedScheduleConfig());
@@ -46,8 +53,14 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
   const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
+    const syncAuth = () => setAdminState(getMultiUserAdminState());
+    window.addEventListener('admin_auth_state_changed', syncAuth);
+    return () => window.removeEventListener('admin_auth_state_changed', syncAuth);
+  }, []);
+
+  useEffect(() => {
     if (isOpen) {
-      setIsAuth(isOwnerAuthenticated());
+      setAdminState(getMultiUserAdminState());
       setConfig(getSavedScheduleConfig());
       setInputPass('');
       setPassError(null);
@@ -57,14 +70,24 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleUnlockModal = (e: React.FormEvent) => {
+  const isAuth = adminState.isAuthenticated;
+
+  const handleUnlockModal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (verifyOwnerPassword(inputPass)) {
-      setIsAuth(true);
+    if (isVerifying) return;
+    setIsVerifying(true);
+    setPassError(null);
+
+    const res = await verifyOwnerPasswordAsync(inputPass);
+    setIsVerifying(false);
+
+    if (res.ok) {
+      setAdminState(getMultiUserAdminState());
       setPassError(null);
       setInputPass('');
     } else {
-      setPassError('Acceso incorrecto. Ingresa ****.');
+      setAdminState(getMultiUserAdminState());
+      setPassError(res.message || 'Acceso incorrecto. Ingresa ****.');
     }
   };
 
@@ -128,16 +151,19 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
               <Clock className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-bold text-white">
                   Panel de Disponibilidad: Días y Horarios
                 </h3>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded border border-emerald-500/30">
                   Titular: {OFFICIAL_BENEFICIARY}
                 </span>
+                <span className="text-[10px] bg-cyan-500/15 text-cyan-300 font-bold px-2 py-0.5 rounded border border-cyan-500/30 flex items-center gap-1">
+                  <Users className="w-3 h-3" /> {adminState.activeUsersCount} en línea
+                </span>
               </div>
               <p className="text-xs text-slate-400">
-                Configura cuándo estás disponible para que el bot agende citas automáticamente si no respondes en 3 a 5 minutos.
+                Configura cuándo estás disponible. Solo 1 Administrador puede conectarse a la vez y la sesión se cierra al cerrar la página.
               </p>
             </div>
           </div>
@@ -158,15 +184,29 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
             </div>
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-400 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30">
-                Desbloqueo Unificado • ****
+                Sesión Única Admin (1/1) • ****
               </span>
               <h4 className="text-lg font-bold text-white mt-2">
                 Ingresa (****)
               </h4>
               <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Ingresa <strong>****</strong> para desbloquear simultáneamente el panel de horarios, las guías previas, la plantilla de ausencia y el simulador de WhatsApp.
+                Ingresa <strong>****</strong> para entrar como Administrador. Los demás usuarios permanecerán en modo cliente normal y tu sesión se cerrará automáticamente al cerrar la página.
               </p>
             </div>
+
+            {adminState.isAdminOccupiedByOther && (
+              <div className="max-w-md mx-auto p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2 text-left">
+                <UserCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-amber-300 block">
+                    Ya hay 1 Administrador conectado en este momento
+                  </strong>
+                  <span>
+                    Solo se permite 1 sesión de administrador activa a la vez. Mientras el administrador actual esté conectado, los demás usuarios continúan en modo normal.
+                  </span>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleUnlockModal} className="max-w-xs mx-auto space-y-3 pt-2">
               <div className="relative">
@@ -185,17 +225,20 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
               </div>
 
               {passError && (
-                <div className="text-xs text-red-400 bg-red-500/10 py-1.5 px-3 rounded-lg border border-red-500/20">
+                <div className="text-xs text-red-400 bg-red-500/10 py-2 px-3 rounded-lg border border-red-500/20">
                   {passError}
                 </div>
               )}
 
               <button
                 type="submit"
-                className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
+                disabled={isVerifying}
+                className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 disabled:opacity-60 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
               >
                 <KeyRound className="w-4 h-4" />
-                <span>Desbloquear Todo (****)</span>
+                <span>
+                  {isVerifying ? 'Verificando...' : 'Desbloquear Todo (****)'}
+                </span>
               </button>
             </form>
           </div>
@@ -337,14 +380,14 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  logoutOwner();
-                  setIsAuth(false);
+                  logoutOwner('manual');
+                  setAdminState(getMultiUserAdminState());
                 }}
                 className="text-xs text-slate-400 hover:text-amber-300 flex items-center justify-center gap-1 py-2 px-2.5 rounded-lg border border-slate-800 hover:border-amber-500/40 transition-colors cursor-pointer"
-                title="Bloquear panel con contraseña"
+                title="Cerrar sesión única de administrador y bloquear panel"
               >
                 <Lock className="w-3.5 h-3.5" />
-                <span>Bloquear</span>
+                <span>Cerrar Sesión Admin</span>
               </button>
             </div>
 

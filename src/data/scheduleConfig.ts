@@ -40,6 +40,20 @@ export function getSavedScheduleConfig(): ScheduleConfig {
   }
 }
 
+export function syncScheduleFromServer(serverConfig: ScheduleConfig): void {
+  if (typeof window === 'undefined' || !serverConfig) return;
+  try {
+    const currentRaw = localStorage.getItem(STORAGE_KEY);
+    const nextRaw = JSON.stringify(serverConfig);
+    if (currentRaw !== nextRaw) {
+      localStorage.setItem(STORAGE_KEY, nextRaw);
+      window.dispatchEvent(new Event('schedule_config_updated'));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export function saveScheduleConfig(config: ScheduleConfig): void {
   if (typeof window === 'undefined') return;
   try {
