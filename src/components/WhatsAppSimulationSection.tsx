@@ -463,7 +463,7 @@ Tu turno prioritario está reservado. En cuanto Javier concluya el pedido actual
       <ProtectedSectionLock
         badge="Guías Previas & Simulador Oficial"
         title="Simulador en Vivo y Guía de Auto-Respuesta WhatsApp"
-        subtitle="Ingresa la clave única 1987 para desbloquear simultáneamente esta guía previa, el simulador interactivo de WhatsApp, la plantilla de ausencia (3 a 5 min) y el panel de horarios."
+        subtitle="Ingresa **** para desbloquear simultáneamente esta guía previa, el simulador interactivo de WhatsApp, la plantilla de ausencia (3 a 5 min) y el panel de horarios."
       >
       <div className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -481,10 +481,10 @@ Tu turno prioritario está reservado. En cuanto Javier concluya el pedido actual
             <button
               onClick={() => setIsManagerOpen(true)}
               className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-amber-500/50 text-amber-300 font-bold px-4 py-2 rounded-xl text-xs shadow-lg transition-all cursor-pointer"
-              title="Configurar días de la semana y turnos de atención (Clave única 1987)"
+              title="Configurar días de la semana y turnos de atención (****)"
             >
               <Lock className="w-4 h-4 text-amber-400" />
-              <span>Configurar Días y Horas (Clave 1987)</span>
+              <span>Configurar Días y Horas (****)</span>
             </button>
           </div>
         </div>

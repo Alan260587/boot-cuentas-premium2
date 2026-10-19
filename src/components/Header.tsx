@@ -178,17 +178,17 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/40'
                   : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/30'
               }`}
-              title="Abrir Panel de Configuración de Días y Horas (Clave 1987)"
+              title="Abrir Panel de Configuración de Días y Horas (****)"
             >
               {isAdminAuth ? (
                 <>
                   <Unlock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="hidden sm:inline">Horarios (1987)</span>
+                  <span className="hidden sm:inline">Horarios (****)</span>
                 </>
               ) : (
                 <>
                   <Lock className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Horarios (1987)</span>
+                  <span className="hidden sm:inline">Horarios (****)</span>
                 </>
               )}
             </button>

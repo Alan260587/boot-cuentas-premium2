@@ -514,15 +514,14 @@ Si le escribes a Javier al WhatsApp **${OFFICIAL_WHATSAPP_NUMBER}** y se encuent
     };
   }
 
-  // Password / Clave 1987 question
-  if (normalized.includes('clave') || normalized.includes('contrasena') || normalized.includes('1987') || normalized.includes('desbloquear')) {
+  // Password / Clave **** question
+  if (normalized.includes('clave') || normalized.includes('contrasena') || normalized.includes('desbloquear')) {
     return {
       replyText: `🔐 **Clave Única de Seguridad del Sistema:**
 
-El Panel de Disponibilidad de Días y Horas de **${OFFICIAL_BENEFICIARY}** se desbloquea exclusivamente con la clave oficial:
-👉 **\`1987\`**
+El Panel de Disponibilidad de Días, Horas y Guías Previas de **${OFFICIAL_BENEFICIARY}** está protegido con una clave privada única (**\`****\`**) de uso exclusivo del titular.
 
-Puedes abrirlo desde el botón **"Horarios (1987)"** en la barra superior o en la sección de Citas y Simulador.`,
+Si eres el titular, puedes desbloquear todo desde el botón **"Horarios (****)"** en la barra superior o en la sección de Citas y Simulador.`,
       updatedContext: context,
     };
   }

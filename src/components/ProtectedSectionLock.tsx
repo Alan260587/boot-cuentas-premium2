@@ -38,7 +38,7 @@ export const ProtectedSectionLock: React.FC<ProtectedSectionLockProps> = ({
       setErrorMsg(null);
       setPassword('');
     } else {
-      setErrorMsg('Contraseña incorrecta. Ingrese la clave oficial 1987.');
+      setErrorMsg('Acceso incorrecto. Ingrese ****.');
     }
   };
 
@@ -55,7 +55,7 @@ export const ProtectedSectionLock: React.FC<ProtectedSectionLockProps> = ({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="font-bold text-emerald-400 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Todo Desbloqueado (Clave Única 1987)
+              <ShieldCheck className="w-3.5 h-3.5" /> Todo Desbloqueado (****)
             </span>
             <span className="text-slate-500 hidden sm:inline">•</span>
             <span className="text-slate-400 hidden sm:inline">
@@ -89,7 +89,7 @@ export const ProtectedSectionLock: React.FC<ProtectedSectionLockProps> = ({
 
           {/* Badge */}
           <span className="inline-block text-[11px] uppercase font-extrabold tracking-widest text-amber-400 bg-amber-500/15 px-3 py-1 rounded-full border border-amber-500/30 mb-3">
-            {badge} • Clave Única 1987
+            {badge} • ****
           </span>
 
           {/* Title */}
@@ -99,30 +99,23 @@ export const ProtectedSectionLock: React.FC<ProtectedSectionLockProps> = ({
 
           <p className="mt-2 text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
             {subtitle ||
-              'Ingresa la clave única 1987 para desbloquear simultáneamente todas las guías previas, el simulador de WhatsApp, el agendamiento prioritario y el panel de horarios.'}
+              'Ingresa **** para desbloquear simultáneamente todas las guías previas, el simulador de WhatsApp, el agendamiento prioritario y el panel de horarios.'}
           </p>
 
           {/* Password Form */}
           <form onSubmit={handleUnlock} className="mt-6 max-w-sm mx-auto space-y-3">
             <div className="relative">
               <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Ingresa la clave única (1987)..."
+                type="password"
+                placeholder="****"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (errorMsg) setErrorMsg(null);
                 }}
-                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-sm text-white px-4 py-3 rounded-2xl outline-none pr-11 transition-all text-center tracking-widest placeholder:tracking-normal placeholder:text-xs"
+                autoComplete="off"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-sm text-white px-4 py-3 rounded-2xl outline-none transition-all text-center tracking-widest placeholder:tracking-widest placeholder:text-sm"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 top-3.5 text-slate-400 hover:text-white transition-colors"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
             </div>
 
             {errorMsg && (
@@ -137,7 +130,7 @@ export const ProtectedSectionLock: React.FC<ProtectedSectionLockProps> = ({
               className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-extrabold py-3 px-6 rounded-2xl text-xs sm:text-sm shadow-xl shadow-amber-500/20 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             >
               <KeyRound className="w-4 h-4" />
-              <span>Desbloquear Sección</span>
+              <span>Desbloquear Todo (****)</span>
             </button>
           </form>
 

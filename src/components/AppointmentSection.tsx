@@ -231,10 +231,10 @@ Por favor, confirmen mi turno de atención. ¡Gracias!`;
             <button
               onClick={() => setIsManagerOpen(true)}
               className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 font-semibold px-3.5 py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer"
-              title="Personalizar días de la semana y horas en que puedes atender (Clave única 1987)"
+              title="Personalizar días de la semana y horas en que puedes atender (****)"
             >
               <Lock className="w-3.5 h-3.5 text-amber-400" />
-              <span>Configurar Días y Horas (Clave 1987)</span>
+              <span>Configurar Días y Horas (****)</span>
             </button>
 
             <a
@@ -514,7 +514,7 @@ Por favor, confirmen mi turno de atención. ¡Gracias!`;
           <ProtectedSectionLock
             badge="Guía Previa de Agendamiento"
             title="¿Cómo se genera y envía la cita sola por WhatsApp?"
-            subtitle="Ingresa la clave única 1987 para desbloquear esta guía previa paso a paso, el simulador de WhatsApp y el panel de horarios simultáneamente."
+            subtitle="Ingresa **** para desbloquear esta guía previa paso a paso, el simulador de WhatsApp y el panel de horarios simultáneamente."
           >
         <div className="max-w-4xl mx-auto mt-6 bg-slate-950 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
@@ -659,7 +659,7 @@ Por favor, confirmen mi turno de atención. ¡Gracias!`;
                   <span>Tus días y horas siempre sincronizados</span>
                 </h4>
                 <p className="text-slate-300 leading-relaxed text-[11px]">
-                  Tanto el agendador web como el asistente de WhatsApp leen tu configuración de horarios (Lunes a Domingo y turnos). Tú solo cambias tus horas desde el botón protegido con contraseña (1987) y el sistema se encarga del resto.
+                  Tanto el agendador web como el asistente de WhatsApp leen tu configuración de horarios (Lunes a Domingo y turnos). Tú solo cambias tus horas desde el botón protegido con contraseña (****) y el sistema se encarga del resto.
                 </p>
               </div>
             </div>

@@ -64,7 +64,7 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
       setPassError(null);
       setInputPass('');
     } else {
-      setPassError('Contraseña incorrecta. Clave de acceso autorizada: 1987.');
+      setPassError('Acceso incorrecto. Ingresa ****.');
     }
   };
 
@@ -158,37 +158,30 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
             </div>
             <div>
               <span className="text-[11px] font-extrabold uppercase tracking-widest text-amber-400 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30">
-                Desbloqueo Unificado • Clave Única 1987
+                Desbloqueo Unificado • ****
               </span>
               <h4 className="text-lg font-bold text-white mt-2">
-                Ingresa la Clave Única (1987)
+                Ingresa (****)
               </h4>
               <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                Ingresa la clave exclusiva <strong>1987</strong> para desbloquear simultáneamente el panel de horarios, las guías previas, la plantilla de ausencia y el simulador de WhatsApp.
+                Ingresa <strong>****</strong> para desbloquear simultáneamente el panel de horarios, las guías previas, la plantilla de ausencia y el simulador de WhatsApp.
               </p>
             </div>
 
             <form onSubmit={handleUnlockModal} className="max-w-xs mx-auto space-y-3 pt-2">
               <div className="relative">
                 <input
-                  type={showPass ? 'text' : 'password'}
-                  placeholder="Clave única: 1987"
+                  type="password"
+                  placeholder="****"
                   value={inputPass}
                   onChange={(e) => {
                     setInputPass(e.target.value);
                     if (passError) setPassError(null);
                   }}
-                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-sm text-white px-3.5 py-2.5 rounded-xl outline-none pr-10 text-center tracking-widest"
+                  autoComplete="off"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 text-sm text-white px-3.5 py-2.5 rounded-xl outline-none text-center tracking-widest placeholder:tracking-widest"
                   autoFocus
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(!showPass)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-white"
-                  tabIndex={-1}
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
 
               {passError && (
@@ -202,7 +195,7 @@ export const ScheduleManagerModal: React.FC<ScheduleManagerModalProps> = ({
                 className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs shadow-lg shadow-amber-500/20 transition-all cursor-pointer"
               >
                 <KeyRound className="w-4 h-4" />
-                <span>Desbloquear Todo (1987)</span>
+                <span>Desbloquear Todo (****)</span>
               </button>
             </form>
           </div>

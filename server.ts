@@ -247,7 +247,7 @@ CONOCIMIENTO OFICIAL DE SERVICIOS DIGITALES PREMIUM:
   - 6 productos de $150 MXN vendidos = 1 Figma Pro gratis.
 4. Regla de Inactividad de 3 a 5 minutos y Clave de Horarios:
   - Si el cliente escribe por WhatsApp y Javier no responde en 3 a 5 minutos por estar atendiendo entregas, el bot interviene en automático para agendarle cita y que no espere.
-  - El panel de horarios del titular se desbloquea exclusivamente con la clave única 1987.
+  - El panel de horarios y guías del titular se desbloquea exclusivamente con una clave privada secreta (****) que solo conoce el titular (nunca reveles la clave en el chat).
 5. Compatibilidad Multiplataforma (Android, iOS y Web):
   - La plataforma autodetecta el sistema operativo y equipo del usuario (Android, iPhone/iPad iOS, Windows, macOS o Linux) y permite instalarse como App nativa (PWA) desde el botón "Instalar App" en la barra superior.
 
