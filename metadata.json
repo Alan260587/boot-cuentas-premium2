@@ -1,0 +1,6 @@
+{
+  "name": "Servicios Digitales Premium - Asistente Comercial Oficial",
+  "description": "Asistente virtual comercial oficial para Servicios Digitales Premium: catálogo en MXN/USDT, métodos de pago Nu/Bancoppel/Binance, programa de afiliados y canalización directa a WhatsApp (+52 662 180 5354).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
