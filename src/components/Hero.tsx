@@ -10,6 +10,7 @@ import {
   Gift,
   CreditCard,
   CalendarCheck,
+  Play,
 } from 'lucide-react';
 import { CountryCode, UserProfile } from '../types';
 import { COUNTRIES, OFFICIAL_WHATSAPP_NUMBER, buildWhatsAppLink } from '../data/catalog';
@@ -18,6 +19,7 @@ interface HeroProps {
   country: CountryCode;
   profile: UserProfile;
   onExploreCatalog: () => void;
+  onGoToVideo?: () => void;
   onGoToPayments: () => void;
   onGoToAffiliates: () => void;
   onGoToAppointments: () => void;
@@ -29,6 +31,7 @@ export const Hero: React.FC<HeroProps> = ({
   country,
   profile,
   onExploreCatalog,
+  onGoToVideo,
   onGoToPayments,
   onGoToAffiliates,
   onGoToAppointments,
@@ -111,6 +114,16 @@ export const Hero: React.FC<HeroProps> = ({
               <span>Explorar Catálogo y Precios</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            {onGoToVideo && (
+              <button
+                onClick={onGoToVideo}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/50 text-cyan-200 font-bold px-5 py-3.5 rounded-2xl text-sm sm:text-base transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-lg shadow-cyan-500/10"
+              >
+                <Play className="w-4 h-4 fill-cyan-300 text-cyan-300" />
+                <span>Ver Video Oficial</span>
+              </button>
+            )}
 
             <button
               onClick={onOpenChat}

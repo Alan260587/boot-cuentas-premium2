@@ -8,6 +8,7 @@ import { CountryCode, UserProfile, Product, CartItem } from './types';
 import { Header } from './components/Header';
 import { NoticeBanner } from './components/NoticeBanner';
 import { Hero } from './components/Hero';
+import { FeaturedVideoSection } from './components/FeaturedVideoSection';
 import { CatalogSection } from './components/CatalogSection';
 import { PaymentMethodsSection } from './components/PaymentMethodsSection';
 import { AffiliateSection } from './components/AffiliateSection';
@@ -109,6 +110,7 @@ export default function App() {
         country={country}
         profile={profile}
         onExploreCatalog={() => scrollToSection('catalogo')}
+        onGoToVideo={() => scrollToSection('video-oficial')}
         onGoToPayments={() => scrollToSection('pagos')}
         onGoToAffiliates={() => scrollToSection('afiliados')}
         onGoToAppointments={() => scrollToSection('citas')}
@@ -118,6 +120,9 @@ export default function App() {
 
       {/* Main Sections */}
       <main className="flex-1">
+        {/* Large Official Video Player (Manual Play Only - No Autoplay) */}
+        <FeaturedVideoSection />
+
         {/* Catalog & Prices */}
         <CatalogSection
           country={country}
