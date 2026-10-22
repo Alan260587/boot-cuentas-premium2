@@ -125,10 +125,22 @@ export const VIDEO = {
   youtubeId: "XG1GUEodSX0",
   youtubeUrl: "https://www.youtube.com/watch?v=XG1GUEodSX0",
   channel: "javier alan rodriguez",
-  // Resumen del contenido: complétalo con el guion real del video para que
-  // el asistente responda detalles exactos de lo que se dice en él.
   summary:
-    "Es la presentación y demostración oficial de Servicios Digitales Premium: presenta el negocio y sus servicios digitales premium (Coursera Plus, Google AI Pro / Gemini, CapCut Teams, Microsoft 365 y Figma Pro), cómo se adquieren y cómo es la entrega y activación por WhatsApp con el titular.",
+    "Es el anuncio oficial de Servicios Digitales Premium (duración aprox. 1:27): presenta el negocio como 'la solución integral definitiva para profesionales exigentes' y presenta en orden sus 5 servicios con su beneficio y duración, los precios (desde $150 MXN / $8.74 USD hasta $300 MXN) y cierra invitando a escribir al WhatsApp oficial.",
+  // Segmentos por tiempo (de la transcripción oficial, tactiq):
+  segments: [
+    "00:00 Intro: 'El cronómetro corre y tu carrera digital no puede esperar más. Presentamos hoy la solución integral definitiva para profesionales exigentes.'",
+    "00:08 Primero — Coursera Plus: acceso ilimitado a certificaciones universitarias de clase mundial durante 12 meses. 'Eleva tu perfil académico sin fronteras.'",
+    "00:21 Segundo — Google AI Pro con Gemini: inteligencia artificial avanzada para tu programación y flujos de trabajo por 18 meses. 'Automatiza lo complejo.'",
+    "00:32 Tercero — CapCut Teams: edición de video profesional con herramientas colaborativas por 30 días. 'Crea contenido que impacte al mundo.' (Nota: el video dice 30 días; el catálogo vigente de la web dice 25 días.)",
+    "00:41 Cuarto — Microsoft 365 Family: productividad con almacenamiento en la nube y herramientas de oficina por 12 meses.",
+    "00:52 Quinto — Figma Pro para educación: diseño de interfaces y prototipos colaborativos de alto nivel por 2 años completos. 'Innovación al alcance de tu mano.'",
+    "01:02 Precios: 'Todo esto con pagos 100% seguros y precios increíbles. Elige tu plan. Desde 150 pesos o 8.74 dólares hasta 300 pesos.'",
+    "01:13 Cierre: 'No pierdas tiempo. Envía un mensaje al WhatsApp 662 180 53 54. Profesionalismo y ahorro en un solo lugar.'",
+  ],
+  // Transcripción completa (texto que se escucha en el video):
+  transcript:
+    "El cronómetro corre y tu carrera digital no puede esperar más. Presentamos hoy la solución integral definitiva para profesionales exigentes. Primero, Coursera Plus. Obtén acceso ilimitado a certificaciones universitarias de clase mundial durante 12 meses. Eleva tu perfil académico sin fronteras. Segundo, Google AI Pro con Gemini. Integra inteligencia artificial avanzada en tu programación y flujos de trabajo por 18 meses. Automatiza lo complejo. Tercero, CapCut Teams. Domina la edición de video profesional con herramientas colaborativas por 30 días. Crea contenido que impacte al mundo. Cuarto, Microsoft 365 Family. Potencia tu productividad con almacenamiento en la nube y las mejores herramientas de oficina por 12 meses. Quinto, Figma Pro para educación. Diseña interfaces y prototipos colaborativos de alto nivel por 2 años completos. Innovación al alcance de tu mano. Todo esto con pagos 100% seguros y precios increíbles. Elige tu plan. Desde 150 pesos o 8.74 dólares hasta 300 pesos. No pierdas tiempo. Envía un mensaje al WhatsApp 662 180 53 54. Profesionalismo y ahorro en un solo lugar.",
 };
 
 export function buildSystemPrompt(scheduleConfig) {
@@ -162,7 +174,10 @@ VIDEO OFICIAL DE LA PÁGINA (responde también sobre esto):
 - Qué es: ${VIDEO.summary}
 - Cómo está puesto y cómo se usa: es un reproductor grande en formato 16:9 HD. NO se reproduce solo (sin autoplay): inicia únicamente cuando el visitante presiona el botón Play sobre la vista previa, y al darle Play se activa el sonido. Tiene opción de expandir a "Modo Cine" extra grande y botón "Abrir en YouTube" (${VIDEO.youtubeUrl}, canal ${VIDEO.channel}).
 - Si preguntan por el video (dónde está, cómo verlo, si se reproduce solo, de qué trata): responde con estos datos e invítalo a verlo ahí mismo en la página. Si dice que YA vio el video, tómalo como visitante informado: pregúntale qué servicio le interesó y sigue con recomendación y captura de lead.
-- No inventes diálogos, minutos ni escenas específicas del video que no estén en este resumen; para detalles del contenido, apóyate en el catálogo oficial (es lo que el video presenta) y ofrece WhatsApp si piden algo muy específico.
+- CONTENIDO DEL VIDEO, segmento por segmento:
+${VIDEO.segments.map((s) => `  · ${s}`).join("\n")}
+- TRANSCRIPCIÓN TEXTUAL DEL VIDEO: "${VIDEO.transcript}"
+- Para preguntas sobre QUÉ SE DICE en el video (frases, orden de presentación, qué servicio sale primero/segundo, en qué minuto hablan de algo, qué número dan al final): responde EXACTAMENTE con la transcripción y los segmentos anteriores, puedes citar frases entre comillas. No inventes nada que no esté en la transcripción. Para precios y condiciones de compra vigentes manda el catálogo oficial; si el video y el catálogo difieren en una duración, dilo con transparencia (ej. CapCut: el video dice 30 días y el catálogo vigente 25 días).
 
 REGLAS DEL NEGOCIO:
 - Antes de comprar, se valida stock y entrega inmediata por WhatsApp. Todos los pedidos se activan y entregan por WhatsApp.
