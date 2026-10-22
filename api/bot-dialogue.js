@@ -12,14 +12,18 @@
 
 import { BUSINESS, buildSystemPrompt } from "./_knowledge.js";
 
+// La cadena de modelos puede tardar: se permite hasta 60s de función.
+export const config = { maxDuration: 60 };
+
 const META_API_URL = "https://api.meta.ai/v1/chat/completions";
 const META_MODEL = process.env.MUSE_MODEL || "muse-spark-1.3";
-// Cadena de modelos Gemini: si uno no está disponible para la cuenta (404)
-// o está saturado (503/429), se intenta el siguiente automáticamente.
-// GEMINI_MODEL (si se define en Vercel) va primero.
+// Cadena de modelos Gemini: si uno no está disponible para la cuenta (404),
+// está saturado (503/429) o tarda demasiado, se intenta el siguiente.
+// GEMINI_MODEL (si se define en Vercel) va primero; luego los que han
+// respondido más estables: 3.6, 3.5 y al final 3.8.
 const GEMINI_MODELS = [
   ...new Set(
-    [process.env.GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash"].filter(Boolean)
+    [process.env.GEMINI_MODEL, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.8-flash"].filter(Boolean)
   ),
 ];
 const geminiUrl = (model) =>
@@ -158,15 +162,25 @@ export default async function handler(req, res) {
 
       let geminiOk = false;
       for (const model of GEMINI_MODELS) {
-        const apiRes = await fetch(geminiUrl(model), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": geminiKey,
-          },
-          body: geminiBody,
-          signal: AbortSignal.timeout(25000),
-        });
+        let apiRes;
+        try {
+          apiRes = await fetch(geminiUrl(model), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": geminiKey,
+            },
+            body: geminiBody,
+            signal: AbortSignal.timeout(18000),
+          });
+        } catch (fetchErr) {
+          // Timeout o error de red con este modelo: probar el siguiente.
+          console.error(
+            `[bot-dialogue] Gemini (${model}) sin respuesta:`,
+            fetchErr?.name || fetchErr
+          );
+          continue;
+        }
 
         if (apiRes.ok) {
           const data = await apiRes.json();
