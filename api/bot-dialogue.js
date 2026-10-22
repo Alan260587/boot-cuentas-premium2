@@ -1,16 +1,21 @@
-// POST /api/bot-dialogue — Asistente Comercial con Meta Model API (Muse).
+// POST /api/bot-dialogue — Asistente Comercial (Gemini de AI Studio o Meta Model API).
 //
 // Contrato EXACTO que ya espera el frontend de la web (Vite + React):
 //   Request:  { message, history: [{sender, text}], context, scheduleConfig }
 //   Response: { reply, updatedContext, isAppointmentConfirmed, confirmedTicket? }
 //
-// La API key vive SOLO en el servidor (variable de entorno de Vercel).
+// Proveedor según la clave configurada en Vercel (en este orden):
+//   1. GEMINI_API_KEY (Google AI Studio) -> gemini-2.5-flash por defecto
+//   2. MODEL_API_KEY  (Meta Model API)   -> muse-spark-1.3 por defecto
+// Las claves viven SOLO en el servidor (variables de entorno de Vercel).
 // Sin dependencias externas: usa fetch nativo de Node 18+.
 
 import { BUSINESS, buildSystemPrompt } from "./_knowledge.js";
 
-const MODEL_API_URL = "https://api.meta.ai/v1/chat/completions";
-const MODEL = process.env.MUSE_MODEL || "muse-spark-1.3"; // barato y rápido para FAQs/soporte
+const META_API_URL = "https://api.meta.ai/v1/chat/completions";
+const META_MODEL = process.env.MUSE_MODEL || "muse-spark-1.3";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const WHATSAPP = BUSINESS.whatsappNumber;
 
 const FALLBACK_REPLY =
@@ -81,7 +86,8 @@ export default async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.MODEL_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  const metaKey = process.env.MODEL_API_KEY;
   const body = req.body || {};
   const message = String(body.message || "").slice(0, 1500).trim();
   const history = Array.isArray(body.history) ? body.history.slice(-12) : [];
@@ -98,8 +104,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  if (!apiKey) {
-    console.error("[bot-dialogue] Falta MODEL_API_KEY en Vercel");
+  if (!geminiKey && !metaKey) {
+    console.error(
+      "[bot-dialogue] Falta GEMINI_API_KEY (o MODEL_API_KEY) en Vercel"
+    );
     res.status(200).json({
       reply: FALLBACK_REPLY,
       updatedContext: context,
@@ -108,54 +116,102 @@ export default async function handler(req, res) {
     return;
   }
 
-  const messages = [
-    {
-      role: "system",
-      content:
-        buildSystemPrompt(scheduleConfig) +
-        `\n\nContexto conocido del visitante hasta ahora: ${JSON.stringify(context)}`,
-    },
-    ...history
-      .filter((h) => h && typeof h.text === "string")
-      .map((h) => ({
-        role: h.sender === "assistant" ? "assistant" : "user",
-        content: h.text.slice(0, 1500),
-      })),
-    { role: "user", content: message },
-  ];
+  const systemPrompt =
+    buildSystemPrompt(scheduleConfig) +
+    `\n\nContexto conocido del visitante hasta ahora: ${JSON.stringify(context)}`;
+  const turns = history
+    .filter((h) => h && typeof h.text === "string")
+    .map((h) => ({
+      role: h.sender === "assistant" ? "assistant" : "user",
+      content: h.text.slice(0, 1500),
+    }));
+  turns.push({ role: "user", content: message });
+  // Gemini exige que la conversación empiece con turno de usuario:
+  // se descartan saludos iniciales del asistente al frente del historial.
+  while (turns.length > 1 && turns[0].role === "assistant") turns.shift();
 
   try {
-    const apiRes = await fetch(MODEL_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages,
-        temperature: 0.4,
-        max_tokens: 800,
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
+    let raw = "";
 
-    if (!apiRes.ok) {
-      console.error(
-        "[bot-dialogue] Model API error",
-        apiRes.status,
-        await apiRes.text().catch(() => "")
-      );
-      res.status(200).json({
-        reply: FALLBACK_REPLY,
-        updatedContext: context,
-        isAppointmentConfirmed: false,
+    if (geminiKey) {
+      // Google AI Studio / Gemini Developer API (REST, sin SDK).
+      const apiRes = await fetch(GEMINI_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": geminiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: turns.map((t) => ({
+            role: t.role === "assistant" ? "model" : "user",
+            parts: [{ text: t.content }],
+          })),
+          generationConfig: {
+            temperature: 0.4,
+            maxOutputTokens: 800,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: AbortSignal.timeout(25000),
       });
-      return;
-    }
 
-    const data = await apiRes.json();
-    const raw = data?.choices?.[0]?.message?.content || "";
+      if (!apiRes.ok) {
+        console.error(
+          "[bot-dialogue] Gemini API error",
+          apiRes.status,
+          await apiRes.text().catch(() => "")
+        );
+        res.status(200).json({
+          reply: FALLBACK_REPLY,
+          updatedContext: context,
+          isAppointmentConfirmed: false,
+        });
+        return;
+      }
+
+      const data = await apiRes.json();
+      raw =
+        data?.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text || "")
+          .join("") || "";
+    } else {
+      // Meta Model API (Chat Completions, compatible con OpenAI).
+      const apiRes = await fetch(META_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${metaKey}`,
+        },
+        body: JSON.stringify({
+          model: META_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...turns.map((t) => ({ role: t.role, content: t.content })),
+          ],
+          temperature: 0.4,
+          max_tokens: 800,
+        }),
+        signal: AbortSignal.timeout(25000),
+      });
+
+      if (!apiRes.ok) {
+        console.error(
+          "[bot-dialogue] Meta Model API error",
+          apiRes.status,
+          await apiRes.text().catch(() => "")
+        );
+        res.status(200).json({
+          reply: FALLBACK_REPLY,
+          updatedContext: context,
+          isAppointmentConfirmed: false,
+        });
+        return;
+      }
+
+      const data = await apiRes.json();
+      raw = data?.choices?.[0]?.message?.content || "";
+    }
     const parsed = parseModelJson(raw);
 
     if (!parsed || typeof parsed.reply !== "string") {
