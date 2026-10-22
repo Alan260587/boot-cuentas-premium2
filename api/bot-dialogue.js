@@ -14,8 +14,16 @@ import { BUSINESS, buildSystemPrompt } from "./_knowledge.js";
 
 const META_API_URL = "https://api.meta.ai/v1/chat/completions";
 const META_MODEL = process.env.MUSE_MODEL || "muse-spark-1.3";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Cadena de modelos Gemini: si uno no está disponible para la cuenta (404)
+// o está saturado (503/429), se intenta el siguiente automáticamente.
+// GEMINI_MODEL (si se define en Vercel) va primero.
+const GEMINI_MODELS = [
+  ...new Set(
+    [process.env.GEMINI_MODEL, "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash"].filter(Boolean)
+  ),
+];
+const geminiUrl = (model) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 const WHATSAPP = BUSINESS.whatsappNumber;
 
 const FALLBACK_REPLY =
@@ -135,33 +143,53 @@ export default async function handler(req, res) {
 
     if (geminiKey) {
       // Google AI Studio / Gemini Developer API (REST, sin SDK).
-      const apiRes = await fetch(GEMINI_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": geminiKey,
+      const geminiBody = JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: turns.map((t) => ({
+          role: t.role === "assistant" ? "model" : "user",
+          parts: [{ text: t.content }],
+        })),
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 800,
+          responseMimeType: "application/json",
         },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: turns.map((t) => ({
-            role: t.role === "assistant" ? "model" : "user",
-            parts: [{ text: t.content }],
-          })),
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 800,
-            responseMimeType: "application/json",
-          },
-        }),
-        signal: AbortSignal.timeout(25000),
       });
 
-      if (!apiRes.ok) {
+      let geminiOk = false;
+      for (const model of GEMINI_MODELS) {
+        const apiRes = await fetch(geminiUrl(model), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": geminiKey,
+          },
+          body: geminiBody,
+          signal: AbortSignal.timeout(25000),
+        });
+
+        if (apiRes.ok) {
+          const data = await apiRes.json();
+          raw =
+            data?.candidates?.[0]?.content?.parts
+              ?.map((p) => p.text || "")
+              .join("") || "";
+          geminiOk = true;
+          break;
+        }
+
+        const errText = await apiRes.text().catch(() => "");
         console.error(
-          "[bot-dialogue] Gemini API error",
+          `[bot-dialogue] Gemini (${model}) error`,
           apiRes.status,
-          await apiRes.text().catch(() => "")
+          errText.slice(0, 200)
         );
+        // 404 = modelo no disponible para la cuenta; 429/503 = saturado.
+        // En esos casos se prueba el siguiente modelo de la cadena.
+        if (![404, 429, 503].includes(apiRes.status)) break;
+      }
+
+      if (!geminiOk) {
         res.status(200).json({
           reply: FALLBACK_REPLY,
           updatedContext: context,
@@ -169,12 +197,6 @@ export default async function handler(req, res) {
         });
         return;
       }
-
-      const data = await apiRes.json();
-      raw =
-        data?.candidates?.[0]?.content?.parts
-          ?.map((p) => p.text || "")
-          .join("") || "";
     } else {
       // Meta Model API (Chat Completions, compatible con OpenAI).
       const apiRes = await fetch(META_API_URL, {
