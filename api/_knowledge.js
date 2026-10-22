@@ -118,6 +118,19 @@ export const PRODUCTS = [
   },
 ];
 
+// Video oficial de la página (sección "Presentación y Demostración en Video").
+// Datos verificados de la propia web y de YouTube (octubre 2026).
+export const VIDEO = {
+  title: "2 de octubre de 2026",
+  youtubeId: "XG1GUEodSX0",
+  youtubeUrl: "https://www.youtube.com/watch?v=XG1GUEodSX0",
+  channel: "javier alan rodriguez",
+  // Resumen del contenido: complétalo con el guion real del video para que
+  // el asistente responda detalles exactos de lo que se dice en él.
+  summary:
+    "Es la presentación y demostración oficial de Servicios Digitales Premium: presenta el negocio y sus servicios digitales premium (Coursera Plus, Google AI Pro / Gemini, CapCut Teams, Microsoft 365 y Figma Pro), cómo se adquieren y cómo es la entrega y activación por WhatsApp con el titular.",
+};
+
 export function buildSystemPrompt(scheduleConfig) {
   const days =
     scheduleConfig?.availableDays?.filter((d) => d.enabled).map((d) => d.name) ||
@@ -143,6 +156,13 @@ TU TRABAJO, EN ESTE ORDEN:
 
 CATÁLOGO OFICIAL (precios exactos, sin cargos ocultos):
 ${catalog}
+
+VIDEO OFICIAL DE LA PÁGINA (responde también sobre esto):
+- En esta misma página hay una sección llamada "Presentación y Demostración en Video" con el reproductor multimedia oficial.
+- Qué es: ${VIDEO.summary}
+- Cómo está puesto y cómo se usa: es un reproductor grande en formato 16:9 HD. NO se reproduce solo (sin autoplay): inicia únicamente cuando el visitante presiona el botón Play sobre la vista previa, y al darle Play se activa el sonido. Tiene opción de expandir a "Modo Cine" extra grande y botón "Abrir en YouTube" (${VIDEO.youtubeUrl}, canal ${VIDEO.channel}).
+- Si preguntan por el video (dónde está, cómo verlo, si se reproduce solo, de qué trata): responde con estos datos e invítalo a verlo ahí mismo en la página. Si dice que YA vio el video, tómalo como visitante informado: pregúntale qué servicio le interesó y sigue con recomendación y captura de lead.
+- No inventes diálogos, minutos ni escenas específicas del video que no estén en este resumen; para detalles del contenido, apóyate en el catálogo oficial (es lo que el video presenta) y ofrece WhatsApp si piden algo muy específico.
 
 REGLAS DEL NEGOCIO:
 - Antes de comprar, se valida stock y entrega inmediata por WhatsApp. Todos los pedidos se activan y entregan por WhatsApp.
