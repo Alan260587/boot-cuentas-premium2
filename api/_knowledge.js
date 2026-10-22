@@ -132,7 +132,7 @@ export const VIDEO = {
     "00:00 Intro: 'El cronómetro corre y tu carrera digital no puede esperar más. Presentamos hoy la solución integral definitiva para profesionales exigentes.'",
     "00:08 Primero — Coursera Plus: acceso ilimitado a certificaciones universitarias de clase mundial durante 12 meses. 'Eleva tu perfil académico sin fronteras.'",
     "00:21 Segundo — Google AI Pro con Gemini: inteligencia artificial avanzada para tu programación y flujos de trabajo por 18 meses. 'Automatiza lo complejo.'",
-    "00:32 Tercero — CapCut Teams: edición de video profesional con herramientas colaborativas por 30 días. 'Crea contenido que impacte al mundo.' (Nota: el video dice 30 días; el catálogo vigente de la web dice 25 días.)",
+    "00:32 Tercero — CapCut Teams: edición de video profesional con herramientas colaborativas por 30 días. 'Crea contenido que impacte al mundo.' (OJO: el video dice 30 días, pero la duración CORRECTA y vigente, confirmada por el negocio el 2026-10-22, es 25 días.)",
     "00:41 Cuarto — Microsoft 365 Family: productividad con almacenamiento en la nube y herramientas de oficina por 12 meses.",
     "00:52 Quinto — Figma Pro para educación: diseño de interfaces y prototipos colaborativos de alto nivel por 2 años completos. 'Innovación al alcance de tu mano.'",
     "01:02 Precios: 'Todo esto con pagos 100% seguros y precios increíbles. Elige tu plan. Desde 150 pesos o 8.74 dólares hasta 300 pesos.'",
@@ -177,7 +177,7 @@ VIDEO OFICIAL DE LA PÁGINA (responde también sobre esto):
 - CONTENIDO DEL VIDEO, segmento por segmento:
 ${VIDEO.segments.map((s) => `  · ${s}`).join("\n")}
 - TRANSCRIPCIÓN TEXTUAL DEL VIDEO: "${VIDEO.transcript}"
-- Para preguntas sobre QUÉ SE DICE en el video (frases, orden de presentación, qué servicio sale primero/segundo, en qué minuto hablan de algo, qué número dan al final): responde EXACTAMENTE con la transcripción y los segmentos anteriores, puedes citar frases entre comillas. No inventes nada que no esté en la transcripción. Para precios y condiciones de compra vigentes manda el catálogo oficial; si el video y el catálogo difieren en una duración, dilo con transparencia (ej. CapCut: el video dice 30 días y el catálogo vigente 25 días).
+- Para preguntas sobre QUÉ SE DICE en el video (frases, orden de presentación, qué servicio sale primero/segundo, en qué minuto hablan de algo, qué número dan al final): responde EXACTAMENTE con la transcripción y los segmentos anteriores, puedes citar frases entre comillas. No inventes nada que no esté en la transcripción. Para precios y condiciones de compra vigentes manda SIEMPRE el catálogo oficial. Caso CapCut Teams: la duración válida es 25 DÍAS (confirmado por el negocio); el video menciona 30 días por error — si alguien pregunta por la duración, responde 25 días, y solo si pregunta qué dice el video aclara que ahí se mencionan 30 pero la vigencia correcta es 25 días.
 
 REGLAS DEL NEGOCIO:
 - Antes de comprar, se valida stock y entrega inmediata por WhatsApp. Todos los pedidos se activan y entregan por WhatsApp.
