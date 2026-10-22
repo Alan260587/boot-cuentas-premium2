@@ -77,7 +77,7 @@ async function notifyLead(payload) {
   }
 }
 
-function parseModelJson(text) {
+export function parseModelJson(text) {
   if (!text) return null;
   try {
     return JSON.parse(text);
@@ -88,6 +88,34 @@ function parseModelJson(text) {
     try {
       return JSON.parse(text.slice(start, end + 1));
     } catch {}
+  }
+  // Last resort: the model sometimes emits JSON with literal newlines or
+  // other control characters inside the reply string, which breaks
+  // JSON.parse. Extract the fields with regexes so the visitor never
+  // sees raw JSON.
+  const replyMatch = text.match(/"reply"\s*:\s*"((?:\\.|[^"\\])*)"/s);
+  if (replyMatch) {
+    let reply = replyMatch[1];
+    try {
+      reply = JSON.parse(`"${reply}"`);
+    } catch {}
+    let updatedContext = {};
+    const ctxStart = text.indexOf('"updatedContext"');
+    if (ctxStart >= 0) {
+      const braceStart = text.indexOf("{", ctxStart);
+      const braceEnd = text.indexOf("}", braceStart);
+      if (braceStart >= 0 && braceEnd > braceStart) {
+        try {
+          updatedContext = JSON.parse(text.slice(braceStart, braceEnd + 1));
+        } catch {}
+      }
+    }
+    return {
+      reply,
+      updatedContext,
+      isAppointmentConfirmed: /"isAppointmentConfirmed"\s*:\s*true/.test(text),
+      confirmedTicket: null,
+    };
   }
   return null;
 }
@@ -251,9 +279,11 @@ export default async function handler(req, res) {
     const parsed = parseModelJson(raw);
 
     if (!parsed || typeof parsed.reply !== "string") {
-      // El modelo no devolvió JSON: usa su texto como respuesta.
+      // El modelo no devolvió JSON usable: usa su texto como respuesta,
+      // pero nunca muestres JSON crudo al visitante.
+      const trimmed = raw.trim();
       res.status(200).json({
-        reply: raw.trim() || FALLBACK_REPLY,
+        reply: trimmed && !trimmed.startsWith("{") ? trimmed : FALLBACK_REPLY,
         updatedContext: context,
         isAppointmentConfirmed: false,
       });
