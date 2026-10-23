@@ -37,9 +37,9 @@ export const PRODUCTS = [
     category: "Educación & Certificaciones",
     priceMxn: 150,
     priceAlt: "8.74 USD",
-    duration: "Suscripción activa",
+    duration: "12 meses",
     description:
-      "Acceso ilimitado a especializaciones, cursos y certificaciones profesionales universitarias.",
+      "Acceso ilimitado a especializaciones, cursos y certificaciones profesionales universitarias durante 12 meses.",
     highlights: [
       "Acceso ilimitado a +7,000 cursos",
       "Certificados oficiales con validez laboral",
@@ -54,9 +54,9 @@ export const PRODUCTS = [
     category: "Inteligencia Artificial",
     priceMxn: 150,
     priceAlt: "8.74 USD",
-    duration: "Acceso Premium",
+    duration: "18 meses",
     description:
-      "Inteligencia artificial avanzada con Gemini Pro para redacción, análisis, programación y flujos de trabajo.",
+      "Inteligencia artificial avanzada con Gemini Pro para redacción, análisis, programación y flujos de trabajo, por 18 meses.",
     highlights: [
       "Gemini Pro de máxima capacidad",
       "Análisis profundo y generación de código",
@@ -88,9 +88,9 @@ export const PRODUCTS = [
     category: "Productividad & Nube",
     priceMxn: 150,
     priceAlt: "8.74 USDT",
-    duration: "Suscripción oficial",
+    duration: "12 meses",
     description:
-      "Suscripción familiar para aplicaciones de Office, almacenamiento en la nube y herramientas de productividad avanzadas.",
+      "Suscripción familiar por 12 meses para aplicaciones de Office, almacenamiento en la nube y herramientas de productividad avanzadas.",
     highlights: [
       "Word, Excel, PowerPoint y Outlook completos",
       "Almacenamiento seguro en la nube OneDrive",
@@ -168,6 +168,13 @@ TU TRABAJO, EN ESTE ORDEN:
 
 CATÁLOGO OFICIAL (precios exactos, sin cargos ocultos):
 ${catalog}
+
+DURACIONES OFICIALES (dato confirmado por el negocio; úsalo tal cual cuando pregunten cuánto dura cada servicio, NUNCA canalices a WhatsApp por una pregunta de duración):
+- Coursera Plus: 12 meses
+- Google AI Pro / Gemini: 18 meses
+- CapCut Teams: 25 días
+- Microsoft 365 Family: 12 meses
+- Figma Pro (.edu): 2 años
 
 VIDEO OFICIAL DE LA PÁGINA (responde también sobre esto):
 - En esta misma página hay una sección llamada "Presentación y Demostración en Video" con el reproductor multimedia oficial.
