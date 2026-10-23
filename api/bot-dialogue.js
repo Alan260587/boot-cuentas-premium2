@@ -193,6 +193,10 @@ export default async function handler(req, res) {
           temperature: 0.4,
           maxOutputTokens: 800,
           responseMimeType: "application/json",
+          // Bot de FAQ/ventas: no necesita razonamiento profundo. Nivel
+          // bajo = respuestas mucho más rápidas (la latencia era parte
+          // de la intermitencia reportada el 2026-10-23).
+          thinkingConfig: { thinkingLevel: "low" },
         },
       });
 
