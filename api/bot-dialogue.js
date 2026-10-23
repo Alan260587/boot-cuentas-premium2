@@ -19,11 +19,19 @@ const META_API_URL = "https://api.meta.ai/v1/chat/completions";
 const META_MODEL = process.env.MUSE_MODEL || "muse-spark-1.3";
 // Cadena de modelos Gemini: si uno no está disponible para la cuenta (404),
 // está saturado (503/429) o tarda demasiado, se intenta el siguiente.
-// GEMINI_MODEL (si se define en Vercel) va primero; luego los que han
-// respondido más estables: 3.6, 3.5 y al final 3.8.
+// GEMINI_MODEL (si se define en Vercel) va primero. 4 modelos x 13s de
+// timeout = 52s máx, dentro del maxDuration de 60s. (Reforzado 2026-10-23
+// tras intermitencia: los modelos de Google fallaban por ratos y el bot
+// caía al mensaje de respaldo de WhatsApp.)
 const GEMINI_MODELS = [
   ...new Set(
-    [process.env.GEMINI_MODEL, "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.8-flash"].filter(Boolean)
+    [
+      process.env.GEMINI_MODEL,
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-3-flash-preview",
+      "gemini-3.8-flash",
+    ].filter(Boolean)
   ),
 ];
 const geminiUrl = (model) =>
@@ -199,7 +207,7 @@ export default async function handler(req, res) {
               "x-goog-api-key": geminiKey,
             },
             body: geminiBody,
-            signal: AbortSignal.timeout(18000),
+            signal: AbortSignal.timeout(13000),
           });
         } catch (fetchErr) {
           // Timeout o error de red con este modelo: probar el siguiente.
