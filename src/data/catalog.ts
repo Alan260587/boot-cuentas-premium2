@@ -40,7 +40,7 @@ export const BANK_DETAILS = {
   ],
 };
 
-export const PRODUCTS: Product[] = [
+export const DEFAULT_PRODUCTS: Product[] = [
   {
     id: 'coursera-plus',
     name: 'Coursera Plus',
@@ -58,6 +58,9 @@ export const PRODUCTS: Product[] = [
     duration: 'Suscripción Activa',
     iconName: 'GraduationCap',
     popular: true,
+    available: true,
+    promoBadge: 'Más Solicitado',
+    stockNote: 'Entrega Rápida',
   },
   {
     id: 'google-ai-pro',
@@ -76,6 +79,9 @@ export const PRODUCTS: Product[] = [
     duration: 'Acceso Premium',
     iconName: 'Sparkles',
     popular: true,
+    available: true,
+    promoBadge: 'Más Solicitado',
+    stockNote: 'Entrega Rápida',
   },
   {
     id: 'capcut-teams',
@@ -93,6 +99,9 @@ export const PRODUCTS: Product[] = [
     ],
     duration: '25 Días Garantizados',
     iconName: 'Video',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
   },
   {
     id: 'microsoft-365',
@@ -110,6 +119,9 @@ export const PRODUCTS: Product[] = [
     ],
     duration: 'Suscripción Oficial',
     iconName: 'LayoutGrid',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
   },
   {
     id: 'figma-pro',
@@ -128,8 +140,245 @@ export const PRODUCTS: Product[] = [
     duration: '2 Años de Licencia (.edu)',
     iconName: 'PenTool',
     popular: true,
+    available: true,
+    promoBadge: 'Licencia 2 Años',
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'canva-pro',
+    name: 'Canva Pro Equipos',
+    category: 'Diseño UI/UX & Prototipado',
+    priceMxn: 150,
+    priceUsd: 8.74,
+    currencyType: 'USD',
+    description: 'Suite de diseño gráfico profesional con plantillas ilimitadas, estudio mágico con IA y eliminador de fondos.',
+    highlights: [
+      'Más de 100 millones de fotos, videos y elementos Pro',
+      'Eliminador de fondos en 1 clic con IA',
+      'Estudio Mágico, redimensionado y Kit de Marca',
+      'Exportación en alta calidad y fondos transparentes',
+    ],
+    duration: 'Suscripción Activa',
+    iconName: 'Palette',
+    popular: true,
+    available: true,
+    promoBadge: 'Nuevo Destacado',
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'chatgpt-plus',
+    name: 'ChatGPT Plus / OpenAI Pro',
+    category: 'Inteligencia Artificial',
+    priceMxn: 250,
+    priceUsd: 14.50,
+    currencyType: 'USDT',
+    description: 'Potencia tu trabajo con acceso completo a los modelos avanzados de OpenAI, generación de imágenes y análisis.',
+    highlights: [
+      'Acceso prioritario a modelos GPT-4o y razonamiento',
+      'Generación de imágenes con DALL·E integrado',
+      'Análisis de documentos PDF, Excel y código',
+      'Respuestas rápidas incluso en horas de alta demanda',
+    ],
+    duration: 'Mensual Garantizado',
+    iconName: 'Bot',
+    popular: true,
+    available: true,
+    promoBadge: 'Alta Demanda',
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'perplexity-pro',
+    name: 'Perplexity AI Pro',
+    category: 'Inteligencia Artificial',
+    priceMxn: 180,
+    priceUsd: 10.50,
+    currencyType: 'USD',
+    description: 'Motor de investigación e inteligencia artificial en tiempo real con fuentes verificadas y múltiples modelos Pro.',
+    highlights: [
+      'Búsquedas Pro ilimitadas con fuentes en vivo',
+      'Selección de modelos avanzados (Claude, GPT, Sonar)',
+      'Subida y análisis ilimitado de archivos y estudios',
+      'Ideal para investigadores, estudiantes y profesionales',
+    ],
+    duration: 'Suscripción Activa',
+    iconName: 'Cpu',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'adobe-creative-cloud',
+    name: 'Adobe Creative Cloud Pro',
+    category: 'Diseño UI/UX & Prototipado',
+    priceMxn: 350,
+    priceUsd: 20.00,
+    currencyType: 'USDT',
+    description: 'Colección de aplicaciones creativas líderes para diseño, fotografía, video y web con IA generativa Adobe Firefly.',
+    highlights: [
+      'Photoshop, Illustrator, Premiere Pro y After Effects',
+      'Acrobat Pro, Lightroom e InDesign incluidos',
+      'Relleno generativo con inteligencia artificial Firefly',
+      'Almacenamiento en la nube y fuentes Adobe Fonts',
+    ],
+    duration: 'Acceso Completo',
+    iconName: 'PenTool',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'youtube-music-premium',
+    name: 'YouTube Premium + Music',
+    category: 'Streaming & Entretenimiento',
+    priceMxn: 130,
+    priceUsd: 7.50,
+    currencyType: 'USD',
+    description: 'Disfruta de todos tus videos y música favorita sin interrupciones publicitarias, con descargas y pantalla apagada.',
+    highlights: [
+      'Videos 100% libres de anuncios en todos tus equipos',
+      'Reproducción en segundo plano y con pantalla bloqueada',
+      'YouTube Music Premium incluido sin costo extra',
+      'Descarga videos y playlists para ver sin internet',
+    ],
+    duration: 'Suscripción Mensual',
+    iconName: 'Music',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'duolingo-super',
+    name: 'Duolingo Super Familiar',
+    category: 'Educación & Certificaciones',
+    priceMxn: 140,
+    priceUsd: 8.20,
+    currencyType: 'USD',
+    description: 'Aprende inglés, francés, alemán o más de 40 idiomas más rápido, sin anuncios y con vidas ilimitadas.',
+    highlights: [
+      'Vidas ilimitadas para practicar sin interrupciones',
+      'Cero anuncios al terminar cada lección',
+      'Práctica personalizada de errores y desafíos legendarios',
+      'Se activa directamente en tu perfil personal',
+    ],
+    duration: 'Suscripción Activa',
+    iconName: 'Globe',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
+  },
+  {
+    id: 'combo-streaming-4k',
+    name: 'Combo Streaming Pro 4K',
+    category: 'Streaming & Entretenimiento',
+    priceMxn: 140,
+    priceUsd: 8.20,
+    currencyType: 'USD',
+    description: 'Acceso garantizado a entretenimiento en ultra alta definición 4K HDR para disfrutar series, películas y estrenos.',
+    highlights: [
+      'Calidad Ultra HD 4K y soporte multidispositivo',
+      'Perfil privado con PIN personalizable',
+      'Soporte y garantía durante todo tu periodo activo',
+      'Activación inmediata por WhatsApp oficial',
+    ],
+    duration: '30 Días con Garantía',
+    iconName: 'Tv',
+    popular: false,
+    available: true,
+    stockNote: 'Entrega Rápida',
   },
 ];
+
+// Keep PRODUCTS export for compatibility; live components use getSavedProducts()
+export const PRODUCTS: Product[] = DEFAULT_PRODUCTS;
+
+const CATALOG_STORAGE_KEY = 'sdp_catalog_products_v2';
+const EXCHANGE_RATE_STORAGE_KEY = 'sdp_exchange_rate_mxn_usd';
+export const DEFAULT_EXCHANGE_RATE = 17.16;
+
+export function getSavedExchangeRate(): number {
+  if (typeof window === 'undefined') return DEFAULT_EXCHANGE_RATE;
+  try {
+    const raw = localStorage.getItem(EXCHANGE_RATE_STORAGE_KEY);
+    if (!raw) return DEFAULT_EXCHANGE_RATE;
+    const val = parseFloat(raw);
+    return !isNaN(val) && val > 0 ? val : DEFAULT_EXCHANGE_RATE;
+  } catch {
+    return DEFAULT_EXCHANGE_RATE;
+  }
+}
+
+export function saveExchangeRate(rate: number): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const cleanRate = Math.max(1, Number(rate.toFixed(2)));
+    localStorage.setItem(EXCHANGE_RATE_STORAGE_KEY, String(cleanRate));
+    window.dispatchEvent(new Event('catalog_products_updated'));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function getSavedProducts(): Product[] {
+  if (typeof window === 'undefined') return DEFAULT_PRODUCTS;
+  try {
+    const raw = localStorage.getItem(CATALOG_STORAGE_KEY);
+    if (!raw) return DEFAULT_PRODUCTS;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((p: Product) => ({
+        ...p,
+        available: p.available !== false,
+        stockNote: p.stockNote || 'Entrega Rápida',
+      }));
+    }
+    return DEFAULT_PRODUCTS;
+  } catch {
+    return DEFAULT_PRODUCTS;
+  }
+}
+
+export function syncCatalogFromServer(serverProducts: Product[]): void {
+  if (typeof window === 'undefined' || !Array.isArray(serverProducts) || serverProducts.length === 0) {
+    return;
+  }
+  try {
+    const currentRaw = localStorage.getItem(CATALOG_STORAGE_KEY);
+    const nextRaw = JSON.stringify(serverProducts);
+    if (currentRaw !== nextRaw) {
+      localStorage.setItem(CATALOG_STORAGE_KEY, nextRaw);
+      window.dispatchEvent(new Event('catalog_products_updated'));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function saveProductsCatalog(products: Product[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const normalized = products.map((p) => ({
+      ...p,
+      priceMxn: Number(p.priceMxn) || 0,
+      priceUsd: Number(Number(p.priceUsd || 0).toFixed(2)),
+      available: p.available !== false,
+      stockNote: p.stockNote || 'Entrega Rápida',
+    }));
+    localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new Event('catalog_products_updated'));
+    fetch('/api/catalog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ products: normalized }),
+    }).catch(() => {});
+  } catch (e) {
+    console.error('Error saving products catalog:', e);
+  }
+}
+
+export function resetProductsToDefault(): Product[] {
+  saveProductsCatalog(DEFAULT_PRODUCTS);
+  return DEFAULT_PRODUCTS;
+}
 
 export const COUNTRIES: { code: CountryCode; name: string; flag: string; currency: string }[] = [
   { code: 'mexico', name: 'México', flag: '🇲🇽', currency: 'MXN' },

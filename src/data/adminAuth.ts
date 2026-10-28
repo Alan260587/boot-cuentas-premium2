@@ -1,4 +1,5 @@
 import { syncScheduleFromServer } from './scheduleConfig';
+import { syncCatalogFromServer } from './catalog';
 
 const LEGACY_STORAGE_KEY = 'sdp_admin_auth_1987';
 
@@ -188,6 +189,10 @@ async function runSessionHeartbeat(): Promise<void> {
 
     if (data.scheduleConfig) {
       syncScheduleFromServer(data.scheduleConfig);
+    }
+
+    if (Array.isArray(data.catalogProducts)) {
+      syncCatalogFromServer(data.catalogProducts);
     }
 
     if (changed) {

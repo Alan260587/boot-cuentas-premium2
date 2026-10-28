@@ -4,6 +4,8 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { processClientMessageIntelligently } from './src/utils/intelligentBotEngine';
+import { DEFAULT_PRODUCTS } from './src/data/catalog';
+import { Product } from './src/types';
 
 dotenv.config();
 
@@ -38,6 +40,7 @@ interface ActiveAdminSession {
 
 const connectedClients = new Map<string, ConnectedClient>();
 let activeAdminSession: ActiveAdminSession | null = null;
+let serverCatalogProducts: Product[] = [...DEFAULT_PRODUCTS];
 
 function cleanupStaleSessions(): void {
   const now = Date.now();
@@ -100,6 +103,7 @@ app.post('/api/session/heartbeat', (req: Request, res: Response) => {
     isAdminOccupiedByOther,
     activeUsersCount: Math.max(1, connectedClients.size),
     scheduleConfig: serverScheduleConfig,
+    catalogProducts: serverCatalogProducts,
   });
 });
 
@@ -241,6 +245,18 @@ app.post('/api/schedule', (req: Request, res: Response) => {
   res.json({ ok: true, scheduleConfig: serverScheduleConfig });
 });
 
+app.get('/api/catalog', (_req: Request, res: Response) => {
+  res.json({ ok: true, products: serverCatalogProducts });
+});
+
+app.post('/api/catalog', (req: Request, res: Response) => {
+  const { products } = req.body || {};
+  if (Array.isArray(products) && products.length > 0) {
+    serverCatalogProducts = products;
+  }
+  res.json({ ok: true, products: serverCatalogProducts });
+});
+
 // Helper to call Gemini models with fallback between free-tier Flash models
 async function callGemini(contents: string, systemInstruction: string) {
   const client = getGeminiClient();
@@ -315,18 +331,22 @@ app.post('/api/chat', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Mensaje requerido' });
   }
 
+  const activeCatalogSummary = serverCatalogProducts
+    .filter((p) => p.available !== false)
+    .map(
+      (p) =>
+        `• **${p.name}** (${p.duration}): $${p.priceMxn} MXN / $${Number(p.priceUsd).toFixed(2)} ${p.currencyType} — ${p.description}`
+    )
+    .join('\n');
+
   // Fallback function for structured commercial answers
   const generateFallbackResponse = (userMsg: string, uCountry?: string, uProfile?: string) => {
     const q = userMsg.toLowerCase();
     
-    if (q.includes('precio') || q.includes('catalogo') || q.includes('catálogo') || q.includes('cuanto cuesta') || q.includes('servicios') || q.includes('cuenta')) {
-      return `¡Con gusto! Aquí tienes nuestro catálogo oficial de Servicios Digitales Premium para potenciar tu productividad y aprendizaje:
+    if (q.includes('precio') || q.includes('catalogo') || q.includes('catálogo') || q.includes('cuanto cuesta') || q.includes('servicios') || q.includes('cuenta') || q.includes('producto')) {
+      return `¡Con gusto! Aquí tienes nuestro catálogo oficial actualizado de Servicios Digitales Premium para potenciar tu productividad y aprendizaje:
 
-📚 **Coursera Plus:** $150 MXN / 8.74 USD (Cursos, especializaciones y certificados universitarios ilimitados).
-🤖 **Google AI Pro / Gemini:** $150 MXN / 8.74 USD (IA de vanguardia para redacción, programación y análisis).
-🎬 **CapCut Teams (25 Días):** $150 MXN / 8.74 USD (Herramientas Pro para creadores de video).
-💼 **Microsoft 365 Family:** $150 MXN / 8.74 USDT (Word, Excel, PowerPoint y nube OneDrive).
-🎨 **Figma Pro (.edu 2 Años):** $300 MXN / 17.00 USDT (Licencia profesional por 2 años para diseño UI/UX).
+${activeCatalogSummary}
 
 ⚠️ **Atención:** Antes de comprar, favor de comunicarse por nuestro WhatsApp oficial: **+52 662 180 5354** para verificar disponibilidad y entregarte tu acceso de inmediato.`;
     }

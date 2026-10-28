@@ -20,7 +20,7 @@ import {
   logoutOwner,
   MultiUserAdminState,
 } from '../data/adminAuth';
-import { ScheduleManagerModal } from './ScheduleManagerModal';
+import { AdminControlModal } from './AdminControlModal';
 import { PWAInstallModalAndButton } from './PWAInstallModalAndButton';
 
 interface HeaderProps {
@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [adminState, setAdminState] = useState<MultiUserAdminState>(() =>
     getMultiUserAdminState()
   );
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isAdminAuth = adminState.isAuthenticated;
 
   const handleAdminLockToggle = () => {
-    setIsScheduleModalOpen(true);
+    setIsAdminModalOpen(true);
   };
 
   const handleShareWeb = () => {
@@ -195,16 +195,16 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
                 title={
                   isAdminAuth
-                    ? 'Sesión Única de Administrador Activa (1/1) • Se cierra al cerrar la página'
+                    ? 'Abrir Centro de Administración: Productos, Precios y Horarios (****)'
                     : adminState.isAdminOccupiedByOther
                     ? 'Administrador conectado en otra sesión (1/1 en uso)'
-                    : 'Abrir Panel de Configuración de Días y Horas (****)'
+                    : 'Abrir Panel de Administración: Productos, Precios y Horarios (****)'
                 }
               >
                 {isAdminAuth ? (
                   <>
                     <Unlock className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="hidden sm:inline">Admin Activo (****)</span>
+                    <span className="hidden sm:inline">Panel Admin (****)</span>
                   </>
                 ) : adminState.isAdminOccupiedByOther ? (
                   <>
@@ -214,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ) : (
                   <>
                     <Lock className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="hidden sm:inline">Horarios (****)</span>
+                    <span className="hidden sm:inline">Administrar (****)</span>
                   </>
                 )}
               </button>
@@ -334,9 +334,9 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Auto-detected OS, Machine & PWA Install Status Bar */}
       <PWAInstallModalAndButton variant="banner" />
 
-      <ScheduleManagerModal
-        isOpen={isScheduleModalOpen}
-        onClose={() => setIsScheduleModalOpen(false)}
+      <AdminControlModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
       />
     </header>
   );

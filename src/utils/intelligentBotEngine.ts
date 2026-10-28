@@ -4,6 +4,7 @@ import {
   OFFICIAL_BENEFICIARY,
   BANK_DETAILS,
   PRODUCTS,
+  getSavedProducts,
   buildWhatsAppLink,
 } from '../data/catalog';
 import { formatEnabledDaysSummary } from '../data/scheduleConfig';
@@ -40,8 +41,16 @@ function normalizeText(text: string): string {
     .trim();
 }
 
-// Find product match
+// Find product match dynamically from live catalog + common keywords
 function detectProduct(normalized: string): string | null {
+  const liveProducts = getSavedProducts();
+  for (const prod of liveProducts) {
+    const normName = normalizeText(prod.name);
+    const firstWord = normName.split(/\s+/)[0];
+    if (normalized.includes(normName) || (firstWord && firstWord.length >= 4 && normalized.includes(firstWord))) {
+      return `${prod.name} (${prod.duration})`;
+    }
+  }
   if (normalized.includes('figma')) return 'Figma Pro (.edu) - Activación 2 Años';
   if (normalized.includes('coursera')) return 'Coursera Plus - Soporte & Entrega';
   if (normalized.includes('gemini') || normalized.includes('google ai') || normalized.includes('ia') || normalized.includes('inteligencia artificial')) {
@@ -53,6 +62,12 @@ function detectProduct(normalized: string): string | null {
   if (normalized.includes('office') || normalized.includes('microsoft') || normalized.includes('365') || normalized.includes('word') || normalized.includes('excel')) {
     return 'Microsoft 365 Family - Invitación';
   }
+  if (normalized.includes('canva')) return 'Canva Pro Equipos';
+  if (normalized.includes('chatgpt') || normalized.includes('openai')) return 'ChatGPT Plus / OpenAI Pro';
+  if (normalized.includes('adobe') || normalized.includes('photoshop')) return 'Adobe Creative Cloud Pro';
+  if (normalized.includes('youtube')) return 'YouTube Premium + Music';
+  if (normalized.includes('perplexity')) return 'Perplexity AI Pro';
+  if (normalized.includes('duolingo')) return 'Duolingo Super Familiar';
   return null;
 }
 
@@ -376,19 +391,18 @@ ${availableSlots.map((s) => `  › ${s}`).join('\n')}
     normalized.includes('que vendes') ||
     normalized.includes('planes')
   ) {
-    return {
-      replyText: `💎 **Catálogo Oficial & Precios Disponibles:**
+    const activeList = getSavedProducts().filter((p) => p.available !== false);
+    const formattedCatalog = activeList
+      .map(
+        (p, idx) =>
+          `${idx + 1}. **${p.name}** (${p.duration}): **$${p.priceMxn} MXN / $${Number(p.priceUsd).toFixed(2)} ${p.currencyType}**\n   › ${p.description}`
+      )
+      .join('\n');
 
-1. 🎨 **Figma Pro (.edu - 2 Años Completos):** $300 MXN / 17.00 USDT
-   › Acceso Pro individual, Figma Slides, Dev Mode, IA Pro.
-2. 📚 **Coursera Plus Anual:** $150 MXN / 8.74 USD
-   › Cursos ilimitados y certificados oficiales incluidos.
-3. 🤖 **Google AI Pro / Gemini Advanced:** $150 MXN / 8.74 USD
-   › Modelo Gemini Ultra/Pro con 2 TB de almacenamiento.
-4. 🎬 **CapCut Teams (25 Días):** $150 MXN / 8.74 USD
-   › Espacio en la nube y funciones Pro desbloqueadas.
-5. 📊 **Microsoft 365 Family:** $150 MXN / 8.74 USDT
-   › Word, Excel, PowerPoint + 1 TB en OneDrive.
+    return {
+      replyText: `💎 **Catálogo Oficial & Precios Disponibles (${activeList.length} servicios activos):**
+
+${formattedCatalog}
 
 ⚡ *Garantía de servicio durante todo el periodo contratado.*
 ¿Cuál de estos te gustaría adquirir o agendar para entrega?`,

@@ -14,6 +14,9 @@ export interface Product {
   duration: string;
   iconName: string;
   popular?: boolean;
+  available?: boolean;
+  promoBadge?: string;
+  stockNote?: string;
 }
 
 export interface CartItem {

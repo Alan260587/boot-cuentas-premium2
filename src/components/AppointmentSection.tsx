@@ -19,7 +19,13 @@ import {
   Check,
 } from 'lucide-react';
 import { CountryCode, AppointmentData } from '../types';
-import { COUNTRIES, OFFICIAL_WHATSAPP_NUMBER, buildWhatsAppLink, OFFICIAL_BENEFICIARY } from '../data/catalog';
+import {
+  COUNTRIES,
+  OFFICIAL_WHATSAPP_NUMBER,
+  buildWhatsAppLink,
+  OFFICIAL_BENEFICIARY,
+  getSavedProducts,
+} from '../data/catalog';
 import {
   getSavedScheduleConfig,
   formatEnabledDaysSummary,
@@ -33,6 +39,7 @@ interface AppointmentSectionProps {
 
 export const AppointmentSection: React.FC<AppointmentSectionProps> = ({ country }) => {
   const [scheduleConfig, setScheduleConfig] = useState(getSavedScheduleConfig());
+  const [catalogProducts, setCatalogProducts] = useState(() => getSavedProducts());
   const [isManagerOpen, setIsManagerOpen] = useState(false);
   const [name, setName] = useState('');
   const [selectedService, setSelectedService] = useState('Activación de Cuenta Digital');
@@ -84,9 +91,16 @@ Por favor, confirmen mi turno de atención. ¡Gracias!`;
         setSelectedTimeSlot(updated.timeSlots[0]);
       }
     };
+    const updateCatalogHandler = () => {
+      setCatalogProducts(getSavedProducts());
+    };
 
     window.addEventListener('schedule_config_updated', updateHandler);
-    return () => window.removeEventListener('schedule_config_updated', updateHandler);
+    window.addEventListener('catalog_products_updated', updateCatalogHandler);
+    return () => {
+      window.removeEventListener('schedule_config_updated', updateHandler);
+      window.removeEventListener('catalog_products_updated', updateCatalogHandler);
+    };
   }, [selectedTimeSlot]);
 
   const timeSlots = scheduleConfig.timeSlots;
@@ -94,11 +108,9 @@ Por favor, confirmen mi turno de atención. ¡Gracias!`;
 
   const servicesList = [
     'Activación de Cuenta Digital',
-    'Coursera Plus - Soporte & Entrega',
-    'Google AI Pro / Gemini - Activación',
-    'Figma Pro (.edu) - Activación 2 Años',
-    'CapCut Teams - Entrega de Equipo',
-    'Microsoft 365 Family - Invitación',
+    ...catalogProducts
+      .filter((p) => p.available !== false)
+      .map((p) => `${p.name} ($${p.priceMxn} MXN / $${Number(p.priceUsd).toFixed(2)} ${p.currencyType})`),
     'Registro en Programa de Afiliados',
     'Atención Comercial & Mayorista',
   ];

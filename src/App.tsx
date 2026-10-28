@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CountryCode, UserProfile, Product, CartItem } from './types';
+import { getSavedProducts } from './data/catalog';
 import { Header } from './components/Header';
 import { NoticeBanner } from './components/NoticeBanner';
 import { Hero } from './components/Hero';
@@ -26,6 +27,24 @@ export default function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncCartWithCatalog = () => {
+      const latestProducts = getSavedProducts();
+      setCartItems((prev) =>
+        prev
+          .map((item) => {
+            const updatedProd = latestProducts.find((p) => p.id === item.product.id);
+            if (!updatedProd || updatedProd.available === false) return null;
+            return { ...item, product: updatedProd };
+          })
+          .filter((item): item is CartItem => item !== null)
+      );
+    };
+
+    window.addEventListener('catalog_products_updated', syncCartWithCatalog);
+    return () => window.removeEventListener('catalog_products_updated', syncCartWithCatalog);
+  }, []);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
