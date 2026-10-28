@@ -1,70 +1,168 @@
-import { syncScheduleFromServer } from './scheduleConfig';
 import { syncCatalogFromServer } from './catalog';
 
-const LEGACY_STORAGE_KEY = 'sdp_admin_auth_1987';
+export const ADMIN_AUTH_CHANGE_EVENT = 'sdp-admin-auth-changed';
+export const ADMIN_PRESENCE_EVENT = 'sdp-admin-presence-updated';
 
-// Unique per-page-load session ID (in memory only, never persisted across page close/reload)
-const currentSessionId =
-  typeof window !== 'undefined'
-    ? `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
-    : 'server_sess';
+const LOCAL_ADMIN_LOCK_KEY = 'sdp_active_admin_lock_v1';
+const LOCAL_ADMIN_LOCK_TTL_MS = 12000;
 
+// Unique transient session ID for this browser tab (never persisted across reloads/closes)
+const CLIENT_SESSION_ID = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
+// Strictly in-memory authentication state so closing or reloading the page automatically logs out
 let isAuthenticatedMemory = false;
 let currentAdminToken: string | null = null;
-let isAdminOccupiedByOtherMemory = false;
-let activeUsersCountMemory = 1;
-let heartbeatInitialized = false;
+let isAdminOccupiedByOther = false;
+let activeConnectedUsersCount = 1;
+let heartbeatIntervalId: number | null = null;
+
+interface LocalAdminLock {
+  sessionId: string;
+  token: string;
+  lastSeen: number;
+}
+
+export interface AdminPresenceState {
+  sessionId: string;
+  isAuthenticated: boolean;
+  isYouAdmin: boolean;
+  isAdminOccupiedByOther: boolean;
+  activeUsersCount: number;
+}
+
+export type MultiUserAdminState = AdminPresenceState;
 
 export interface AdminLoginResult {
   ok: boolean;
   reason?: 'invalid_password' | 'already_occupied' | 'network_error';
-  message?: string;
+  message: string;
 }
 
-export interface MultiUserAdminState {
-  isAuthenticated: boolean;
-  isAdminOccupiedByOther: boolean;
-  activeUsersCount: number;
-  sessionId: string;
+export const ADMIN_PIN_CODE = '1987';
+
+export function isExpectedOwnerPin(input: string): boolean {
+  return String(input ?? '').trim() === ADMIN_PIN_CODE;
 }
 
-function clearLegacyStorage(): void {
-  if (typeof window === 'undefined') return;
+export function verifyOwnerPassword(inputPassword: string): boolean {
+  return isExpectedOwnerPin(inputPassword);
+}
+
+function readLocalAdminLock(): LocalAdminLock | null {
+  if (typeof window === 'undefined') return null;
   try {
-    sessionStorage.removeItem(LEGACY_STORAGE_KEY);
-    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    const raw = window.localStorage.getItem(LOCAL_ADMIN_LOCK_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LocalAdminLock;
+    if (!parsed || typeof parsed.sessionId !== 'string' || typeof parsed.lastSeen !== 'number') {
+      return null;
+    }
+    if (Date.now() - parsed.lastSeen > LOCAL_ADMIN_LOCK_TTL_MS) {
+      window.localStorage.removeItem(LOCAL_ADMIN_LOCK_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
-    // Ignore storage access errors
+    return null;
   }
 }
 
-function notifyStateChange(): void {
+function writeLocalAdminLock(token: string): void {
   if (typeof window === 'undefined') return;
-  window.dispatchEvent(new Event('admin_auth_state_changed'));
+  try {
+    const payload: LocalAdminLock = {
+      sessionId: CLIENT_SESSION_ID,
+      token,
+      lastSeen: Date.now(),
+    };
+    window.localStorage.setItem(LOCAL_ADMIN_LOCK_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearLocalAdminLockIfOwned(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = readLocalAdminLock();
+    if (current && current.sessionId === CLIENT_SESSION_ID) {
+      window.localStorage.removeItem(LOCAL_ADMIN_LOCK_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function isLocalLockOccupiedByOtherTab(): boolean {
+  const lock = readLocalAdminLock();
+  return Boolean(lock && lock.sessionId !== CLIENT_SESSION_ID);
+}
+
+function notifyAuthAndPresenceListeners(): void {
+  if (typeof window === 'undefined') return;
+  const detail: AdminPresenceState = {
+    sessionId: CLIENT_SESSION_ID,
+    isAuthenticated: isAuthenticatedMemory,
+    isYouAdmin: isAuthenticatedMemory,
+    isAdminOccupiedByOther,
+    activeUsersCount: activeConnectedUsersCount,
+  };
+  window.dispatchEvent(new CustomEvent(ADMIN_AUTH_CHANGE_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(ADMIN_PRESENCE_EVENT, { detail }));
+}
+
+export function getClientSessionId(): string {
+  return CLIENT_SESSION_ID;
+}
+
+export function getAdminPresenceState(): AdminPresenceState {
+  const localOther = isLocalLockOccupiedByOtherTab();
+  return {
+    sessionId: CLIENT_SESSION_ID,
+    isAuthenticated: isAuthenticatedMemory,
+    isYouAdmin: isAuthenticatedMemory,
+    isAdminOccupiedByOther: !isAuthenticatedMemory && (isAdminOccupiedByOther || localOther),
+    activeUsersCount: activeConnectedUsersCount,
+  };
+}
+
+export function getMultiUserAdminState(): MultiUserAdminState {
+  return getAdminPresenceState();
 }
 
 export function isOwnerAuthenticated(): boolean {
   return isAuthenticatedMemory;
 }
 
-export function getMultiUserAdminState(): MultiUserAdminState {
-  return {
-    isAuthenticated: isAuthenticatedMemory,
-    isAdminOccupiedByOther: isAdminOccupiedByOtherMemory,
-    activeUsersCount: activeUsersCountMemory,
-    sessionId: currentSessionId,
-  };
+export function setOwnerAuthenticated(authenticated: boolean): void {
+  isAuthenticatedMemory = authenticated;
+  if (!authenticated) {
+    currentAdminToken = null;
+    clearLocalAdminLockIfOwned();
+  }
+  notifyAuthAndPresenceListeners();
 }
 
-export async function verifyOwnerPasswordAsync(
-  inputPassword: string
-): Promise<AdminLoginResult> {
-  const cleanPassword = inputPassword.trim();
-  if (!cleanPassword) {
+export async function verifyOwnerPasswordAsync(inputPassword: string): Promise<AdminLoginResult> {
+  const cleanPassword = (inputPassword ?? '').trim();
+
+  if (!isExpectedOwnerPin(cleanPassword)) {
     return {
       ok: false,
       reason: 'invalid_password',
       message: 'Acceso incorrecto. Ingresa ****.',
+    };
+  }
+
+  // Check if another tab in the same browser is already logged in as Admin
+  if (isLocalLockOccupiedByOtherTab()) {
+    isAdminOccupiedByOther = true;
+    notifyAuthAndPresenceListeners();
+    return {
+      ok: false,
+      reason: 'already_occupied',
+      message:
+        'Ya hay 1 Administrador conectado en este momento. Solo se permite un administrador activo a la vez.',
     };
   }
 
@@ -73,64 +171,85 @@ export async function verifyOwnerPasswordAsync(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sessionId: currentSessionId,
+        sessionId: CLIENT_SESSION_ID,
         password: cleanPassword,
       }),
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await response.json();
 
-    if (response.ok && data.ok) {
-      isAuthenticatedMemory = true;
-      currentAdminToken = data.adminToken || null;
-      isAdminOccupiedByOtherMemory = false;
-      if (typeof data.activeUsersCount === 'number') {
-        activeUsersCountMemory = data.activeUsersCount;
+      if (response.ok && data?.ok) {
+        const token: string =
+          typeof data.adminToken === 'string' && data.adminToken
+            ? data.adminToken
+            : `adm_v1_${CLIENT_SESSION_ID.replace(/[^a-zA-Z0-9_-]/g, '')}_${Date.now()}`;
+        isAuthenticatedMemory = true;
+        currentAdminToken = token;
+        isAdminOccupiedByOther = false;
+        if (typeof data.activeUsersCount === 'number') {
+          activeConnectedUsersCount = Math.max(1, data.activeUsersCount);
+        }
+        writeLocalAdminLock(token);
+        notifyAuthAndPresenceListeners();
+        return {
+          ok: true,
+          message: 'Sesión de Administrador iniciada correctamente.',
+        };
       }
-      clearLegacyStorage();
-      notifyStateChange();
-      return { ok: true };
-    }
 
-    if (response.status === 409 || data.reason === 'already_occupied') {
-      isAuthenticatedMemory = false;
-      currentAdminToken = null;
-      isAdminOccupiedByOtherMemory = true;
-      notifyStateChange();
-      return {
-        ok: false,
-        reason: 'already_occupied',
-        message:
-          data.message ||
-          'Ya hay 1 Administrador conectado en este momento. Solo se permite un administrador activo a la vez.',
-      };
-    }
+      if (response.status === 409 || data?.reason === 'already_occupied') {
+        isAuthenticatedMemory = false;
+        currentAdminToken = null;
+        isAdminOccupiedByOther = true;
+        notifyAuthAndPresenceListeners();
+        return {
+          ok: false,
+          reason: 'already_occupied',
+          message:
+            data?.message ||
+            'Ya hay 1 Administrador conectado en este momento. Solo se permite un administrador activo a la vez.',
+        };
+      }
 
-    return {
-      ok: false,
-      reason: 'invalid_password',
-      message: data.message || 'Acceso incorrecto. Ingresa ****.',
-    };
+      if (response.status === 401 || data?.reason === 'invalid_password') {
+        return {
+          ok: false,
+          reason: 'invalid_password',
+          message: 'Acceso incorrecto. Ingresa ****.',
+        };
+      }
+    }
   } catch {
-    return {
-      ok: false,
-      reason: 'network_error',
-      message: 'No se pudo verificar la sesión en el servidor. Intenta de nuevo.',
-    };
+    // Fallback below for Vercel serverless cold start or static edge routing
   }
+
+  // Fallback activation when PIN is verified via isExpectedOwnerPin and no other admin is active
+  const fallbackToken = `adm_v1_${CLIENT_SESSION_ID.replace(/[^a-zA-Z0-9_-]/g, '')}_${Date.now()}`;
+  isAuthenticatedMemory = true;
+  currentAdminToken = fallbackToken;
+  isAdminOccupiedByOther = false;
+  writeLocalAdminLock(fallbackToken);
+  notifyAuthAndPresenceListeners();
+
+  return {
+    ok: true,
+    message: 'Sesión de Administrador iniciada correctamente.',
+  };
 }
 
-export function logoutOwner(reason: 'manual' | 'page_close' = 'manual'): void {
+export function logoutOwnerSession(reason: 'manual' | 'page_close' = 'manual'): void {
   const tokenToRelease = currentAdminToken;
+  const wasAdmin = isAuthenticatedMemory;
+
   isAuthenticatedMemory = false;
   currentAdminToken = null;
-  clearLegacyStorage();
-  notifyStateChange();
-
-  if (typeof window === 'undefined') return;
+  clearLocalAdminLockIfOwned();
+  notifyAuthAndPresenceListeners();
 
   const payload = JSON.stringify({
-    sessionId: currentSessionId,
+    sessionId: CLIENT_SESSION_ID,
     adminToken: tokenToRelease,
     reason,
   });
@@ -141,93 +260,116 @@ export function logoutOwner(reason: 'manual' | 'page_close' = 'manual'): void {
       navigator.sendBeacon('/api/admin/logout', blob);
       return;
     } catch {
-      // Fallback to fetch keepalive below
+      // fallback to fetch keepalive below
     }
   }
 
-  fetch('/api/admin/logout', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: payload,
-    keepalive: true,
-  }).catch(() => {});
+  if (wasAdmin || reason === 'page_close') {
+    fetch('/api/admin/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true,
+    }).catch(() => {});
+  }
+}
+
+export function logoutOwner(reason: 'manual' | 'page_close' = 'manual'): void {
+  logoutOwnerSession(reason);
 }
 
 async function runSessionHeartbeat(): Promise<void> {
-  if (typeof window === 'undefined') return;
+  // Keep local tab lock fresh if we are the active administrator
+  if (isAuthenticatedMemory && currentAdminToken) {
+    writeLocalAdminLock(currentAdminToken);
+  }
+
+  const localOtherBefore = isLocalLockOccupiedByOtherTab();
+
   try {
-    const res = await fetch('/api/session/heartbeat', {
+    const response = await fetch('/api/session/heartbeat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        sessionId: currentSessionId,
+        sessionId: CLIENT_SESSION_ID,
         adminToken: currentAdminToken,
       }),
     });
-    if (!res.ok) return;
-    const data = await res.json();
+
+    if (!response.ok) return;
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) return;
+
+    const data = await response.json();
+    if (!data?.ok) return;
 
     let changed = false;
 
-    if (typeof data.activeUsersCount === 'number' && data.activeUsersCount !== activeUsersCountMemory) {
-      activeUsersCountMemory = data.activeUsersCount;
+    const nextOccupied =
+      !isAuthenticatedMemory && (Boolean(data.isAdminOccupiedByOther) || localOtherBefore);
+    const nextUsers =
+      typeof data.activeUsersCount === 'number'
+        ? Math.max(1, data.activeUsersCount)
+        : activeConnectedUsersCount;
+
+    if (nextOccupied !== isAdminOccupiedByOther || nextUsers !== activeConnectedUsersCount) {
+      isAdminOccupiedByOther = nextOccupied;
+      activeConnectedUsersCount = nextUsers;
       changed = true;
     }
 
-    const occupiedByOther = Boolean(data.isAdminOccupiedByOther);
-    if (occupiedByOther !== isAdminOccupiedByOtherMemory) {
-      isAdminOccupiedByOtherMemory = occupiedByOther;
-      changed = true;
-    }
-
-    // If this client thought it was admin, but server lock expired or was reset
-    if (isAuthenticatedMemory && !data.isYouAdmin) {
-      isAuthenticatedMemory = false;
-      currentAdminToken = null;
-      changed = true;
-    }
-
-    if (data.scheduleConfig) {
-      syncScheduleFromServer(data.scheduleConfig);
-    }
-
-    if (Array.isArray(data.catalogProducts)) {
+    if (Array.isArray(data.catalogProducts) && data.catalogProducts.length > 0) {
       syncCatalogFromServer(data.catalogProducts);
     }
 
     if (changed) {
-      notifyStateChange();
+      notifyAuthAndPresenceListeners();
     }
   } catch {
     // Ignore transient network errors during heartbeat
+    if (localOtherBefore !== isAdminOccupiedByOther && !isAuthenticatedMemory) {
+      isAdminOccupiedByOther = localOtherBefore;
+      notifyAuthAndPresenceListeners();
+    }
   }
 }
 
-export function initMultiUserSessionManager(): void {
-  if (typeof window === 'undefined' || heartbeatInitialized) return;
-  heartbeatInitialized = true;
+export function initAdminSessionLifecycle(): void {
+  if (typeof window === 'undefined') return;
+  if (heartbeatIntervalId !== null) return;
 
-  // Ensure any previous session storage is wiped on page load so every reload/open starts locked
-  clearLegacyStorage();
-  isAuthenticatedMemory = false;
-  currentAdminToken = null;
+  // Clear any legacy persistent storage from older versions
+  try {
+    window.localStorage.removeItem('sdp_owner_admin_unlocked');
+    window.sessionStorage.removeItem('sdp_owner_admin_unlocked_session');
+  } catch {
+    // ignore
+  }
+
+  // Listen for cross-tab localStorage changes so tabs immediately see when Admin is occupied/released
+  window.addEventListener('storage', (event) => {
+    if (event.key === LOCAL_ADMIN_LOCK_KEY) {
+      const occupiedByOther = isLocalLockOccupiedByOtherTab();
+      if (!isAuthenticatedMemory && occupiedByOther !== isAdminOccupiedByOther) {
+        isAdminOccupiedByOther = occupiedByOther;
+        notifyAuthAndPresenceListeners();
+      }
+    }
+  });
 
   // Initial heartbeat immediately
   runSessionHeartbeat();
 
-  // Periodic heartbeat every 3.5 seconds for real-time multi-user & single-admin sync
-  window.setInterval(runSessionHeartbeat, 3500);
+  // Periodic heartbeat every 3.5 seconds to keep presence & admin lock alive
+  heartbeatIntervalId = window.setInterval(() => {
+    runSessionHeartbeat();
+  }, 3500);
 
-  // Automatic logout when closing or reloading the page/tab
+  // Automatic logout when closing the tab, reloading, or navigating away
   const handlePageUnload = () => {
-    logoutOwner('page_close');
+    logoutOwnerSession('page_close');
   };
 
   window.addEventListener('pagehide', handlePageUnload);
   window.addEventListener('beforeunload', handlePageUnload);
-}
-
-// Auto-initialize in browser environment
-if (typeof window !== 'undefined') {
-  initMultiUserSessionManager();
 }

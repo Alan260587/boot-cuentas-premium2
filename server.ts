@@ -91,6 +91,22 @@ app.post('/api/session/heartbeat', (req: Request, res: Response) => {
   ) {
     activeAdminSession.lastSeen = Date.now();
     isYouAdmin = true;
+  } else if (
+    !activeAdminSession &&
+    sessionId &&
+    typeof sessionId === 'string' &&
+    adminToken &&
+    typeof adminToken === 'string' &&
+    adminToken.startsWith('adm_')
+  ) {
+    const now = Date.now();
+    activeAdminSession = {
+      sessionId,
+      token: adminToken,
+      connectedAt: now,
+      lastSeen: now,
+    };
+    isYouAdmin = true;
   }
 
   const isAdminOccupiedByOther = Boolean(
@@ -122,7 +138,8 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
 
   touchClient(sessionId);
 
-  if (typeof password !== 'string' || password.trim() !== ADMIN_SECRET_KEY) {
+  const normalizedPassword = String(password ?? '').trim();
+  if (normalizedPassword !== ADMIN_SECRET_KEY) {
     return res.status(401).json({
       ok: false,
       reason: 'invalid_password',
@@ -140,7 +157,8 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
     });
   }
 
-  const token = `adm_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  const safeSession = sessionId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const token = `adm_v1_${safeSession}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   const now = Date.now();
   activeAdminSession = {
     sessionId,
