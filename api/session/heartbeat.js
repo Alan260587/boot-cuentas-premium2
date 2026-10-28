@@ -3,7 +3,10 @@ import {
   getActiveAdminSession,
   getConnectedClientsCount,
   getServerCatalogProducts,
+  getServerCatalogUpdatedAt,
+  getServerExchangeRate,
   getServerScheduleConfig,
+  getServerScheduleUpdatedAt,
   isValidAdminTokenForSession,
   parseRequestBody,
   setActiveAdminSession,
@@ -73,6 +76,10 @@ export default async function handler(req, res) {
     isAdminOccupiedByOther,
     activeUsersCount: getConnectedClientsCount(),
     scheduleConfig: getServerScheduleConfig(),
+    scheduleUpdatedAt: getServerScheduleUpdatedAt(),
     catalogProducts: getServerCatalogProducts(),
+    exchangeRate: getServerExchangeRate(),
+    catalogUpdatedAt: getServerCatalogUpdatedAt(),
   });
 }
+

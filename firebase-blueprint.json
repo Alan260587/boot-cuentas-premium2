@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "CatalogConfig": {
+      "title": "CatalogConfig",
+      "description": "Global synchronized product catalog and MXN/USD exchange rate configuration across all devices.",
+      "type": "object",
+      "properties": {
+        "products": {
+          "type": "array",
+          "description": "List of digital products and services with MXN and USD prices, availability, and highlights.",
+          "items": {
+            "type": "object"
+          }
+        },
+        "exchangeRate": {
+          "type": "number",
+          "description": "Current MXN to USD exchange rate."
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds of the last update."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Session identifier of the administrator device that saved the update."
+        },
+        "authCode": {
+          "type": "string",
+          "description": "Verification code for administrator write authorization."
+        }
+      },
+      "required": ["products", "exchangeRate", "updatedAt", "updatedBy", "authCode"]
+    },
+    "ScheduleConfig": {
+      "title": "ScheduleConfig",
+      "description": "Global synchronized appointment schedule, enabled days, and wait time configuration across all devices.",
+      "type": "object",
+      "properties": {
+        "maxWaitMinutes": {
+          "type": "number",
+          "description": "Maximum priority wait time in minutes."
+        },
+        "availableDays": {
+          "type": "array",
+          "description": "Days of the week with enabled status.",
+          "items": {
+            "type": "object"
+          }
+        },
+        "timeSlots": {
+          "type": "array",
+          "description": "List of formatted time slot strings.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds of the last schedule update."
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Session identifier of the administrator device that saved the schedule."
+        },
+        "authCode": {
+          "type": "string",
+          "description": "Verification code for administrator write authorization."
+        }
+      },
+      "required": ["maxWaitMinutes", "availableDays", "timeSlots", "updatedAt", "updatedBy", "authCode"]
+    },
+    "AdminLockConfig": {
+      "title": "AdminLockConfig",
+      "description": "Single active administrator lock state across devices.",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Active administrator session ID or empty string when unlocked."
+        },
+        "token": {
+          "type": "string",
+          "description": "Active administrator session token or empty string when unlocked."
+        },
+        "lastSeen": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds of last admin heartbeat."
+        },
+        "locked": {
+          "type": "boolean",
+          "description": "Whether an administrator session is currently active."
+        },
+        "authCode": {
+          "type": "string",
+          "description": "Verification code for administrator lock transitions."
+        }
+      },
+      "required": ["sessionId", "token", "lastSeen", "locked", "authCode"]
+    },
+    "ClientPresence": {
+      "title": "ClientPresence",
+      "description": "Active connected user session heartbeat for live online user counter.",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Client session identifier."
+        },
+        "lastSeen": {
+          "type": "number",
+          "description": "Epoch timestamp in milliseconds of last client heartbeat."
+        }
+      },
+      "required": ["sessionId", "lastSeen"]
+    }
+  },
+  "firestore": {
+    "/appConfig/catalog": {
+      "schema": {
+        "$ref": "#/entities/CatalogConfig"
+      },
+      "description": "Global synchronized product catalog and exchange rate document."
+    },
+    "/appConfig/schedule": {
+      "schema": {
+        "$ref": "#/entities/ScheduleConfig"
+      },
+      "description": "Global synchronized schedule availability and time slots document."
+    },
+    "/appConfig/adminLock": {
+      "schema": {
+        "$ref": "#/entities/AdminLockConfig"
+      },
+      "description": "Global single-admin session lock document."
+    },
+    "/presence/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/ClientPresence"
+      },
+      "description": "Active client session presence documents."
+    }
+  }
+}

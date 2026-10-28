@@ -1,5 +1,6 @@
 import {
   getServerScheduleConfig,
+  getServerScheduleUpdatedAt,
   parseRequestBody,
   setServerScheduleConfig,
 } from './_adminState.js';
@@ -14,14 +15,22 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    return res.status(200).json(getServerScheduleConfig());
+    return res.status(200).json({
+      ...getServerScheduleConfig(),
+      updatedAt: getServerScheduleUpdatedAt(),
+    });
   }
 
   if (req.method === 'POST') {
     const body = parseRequestBody(req);
     const updated = setServerScheduleConfig(body);
-    return res.status(200).json({ ok: true, scheduleConfig: updated });
+    return res.status(200).json({
+      ok: true,
+      scheduleConfig: updated,
+      updatedAt: getServerScheduleUpdatedAt(),
+    });
   }
 
   return res.status(405).json({ ok: false, message: 'Method not allowed' });
 }
+

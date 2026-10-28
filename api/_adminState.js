@@ -22,7 +22,10 @@ export const DEFAULT_SCHEDULE_CONFIG = {
 const connectedClients = new Map();
 let activeAdminSession = null;
 let serverScheduleConfig = structuredClone(DEFAULT_SCHEDULE_CONFIG);
+let serverScheduleUpdatedAt = 0;
 let serverCatalogProducts = null;
+let serverExchangeRate = 17.16;
+let serverCatalogUpdatedAt = 0;
 
 export function parseRequestBody(req) {
   if (!req || req.body == null) return {};
@@ -102,6 +105,10 @@ export function getServerScheduleConfig() {
   return serverScheduleConfig;
 }
 
+export function getServerScheduleUpdatedAt() {
+  return serverScheduleUpdatedAt;
+}
+
 export function setServerScheduleConfig(nextConfig) {
   if (
     nextConfig &&
@@ -113,6 +120,10 @@ export function setServerScheduleConfig(nextConfig) {
       availableDays: nextConfig.availableDays,
       timeSlots: nextConfig.timeSlots,
     };
+    serverScheduleUpdatedAt =
+      typeof nextConfig.updatedAt === 'number' && nextConfig.updatedAt > 0
+        ? nextConfig.updatedAt
+        : Date.now();
   }
   return serverScheduleConfig;
 }
@@ -121,9 +132,23 @@ export function getServerCatalogProducts() {
   return serverCatalogProducts;
 }
 
-export function setServerCatalogProducts(products) {
+export function getServerExchangeRate() {
+  return serverExchangeRate;
+}
+
+export function getServerCatalogUpdatedAt() {
+  return serverCatalogUpdatedAt;
+}
+
+export function setServerCatalogProducts(products, exchangeRate, updatedAt) {
   if (Array.isArray(products) && products.length > 0) {
     serverCatalogProducts = products;
+    serverCatalogUpdatedAt =
+      typeof updatedAt === 'number' && updatedAt > 0 ? updatedAt : Date.now();
+  }
+  if (typeof exchangeRate === 'number' && exchangeRate >= 1) {
+    serverExchangeRate = Number(exchangeRate.toFixed(2));
   }
   return serverCatalogProducts || PRODUCTS;
 }
+

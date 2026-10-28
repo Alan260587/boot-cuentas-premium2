@@ -5,7 +5,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { CountryCode, UserProfile, Product, CartItem } from './types';
-import { getSavedProducts } from './data/catalog';
+import { getSavedProducts, initCatalogRealtimeSync } from './data/catalog';
+import { initScheduleRealtimeSync } from './data/scheduleConfig';
+import { initAdminSessionLifecycle } from './data/adminAuth';
 import { Header } from './components/Header';
 import { NoticeBanner } from './components/NoticeBanner';
 import { Hero } from './components/Hero';
@@ -29,6 +31,10 @@ export default function App() {
   const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
+    initCatalogRealtimeSync();
+    initScheduleRealtimeSync();
+    initAdminSessionLifecycle();
+
     const syncCartWithCatalog = () => {
       const latestProducts = getSavedProducts();
       setCartItems((prev) =>

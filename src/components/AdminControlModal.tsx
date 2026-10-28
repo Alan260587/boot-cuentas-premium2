@@ -168,7 +168,10 @@ export const AdminControlModal: React.FC<AdminControlModalProps> = ({
 
   useEffect(() => {
     const syncAuth = () => setAdminState(getMultiUserAdminState());
-    const syncCatalog = () => setProducts(getSavedProducts());
+    const syncCatalog = () => {
+      setProducts(getSavedProducts());
+      setExchangeRate(getSavedExchangeRate());
+    };
     const syncSchedule = () => setScheduleConfig(getSavedScheduleConfig());
 
     window.addEventListener('admin_auth_state_changed', syncAuth);

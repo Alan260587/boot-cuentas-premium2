@@ -1,10 +1,14 @@
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { syncCatalogFromServer } from './catalog';
+import { syncScheduleFromServer } from './scheduleConfig';
 
 export const ADMIN_AUTH_CHANGE_EVENT = 'sdp-admin-auth-changed';
 export const ADMIN_PRESENCE_EVENT = 'sdp-admin-presence-updated';
+export const LEGACY_ADMIN_AUTH_EVENT = 'admin_auth_state_changed';
 
 const LOCAL_ADMIN_LOCK_KEY = 'sdp_active_admin_lock_v1';
-const LOCAL_ADMIN_LOCK_TTL_MS = 12000;
+const LOCAL_ADMIN_LOCK_TTL_MS = 14000;
 
 // Unique transient session ID for this browser tab (never persisted across reloads/closes)
 const CLIENT_SESSION_ID = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -13,8 +17,10 @@ const CLIENT_SESSION_ID = `sess_${Date.now()}_${Math.random().toString(36).slice
 let isAuthenticatedMemory = false;
 let currentAdminToken: string | null = null;
 let isAdminOccupiedByOther = false;
+let isCloudAdminOccupiedByOther = false;
 let activeConnectedUsersCount = 1;
 let heartbeatIntervalId: number | null = null;
+let adminLockUnsubscribe: (() => void) | null = null;
 
 interface LocalAdminLock {
   sessionId: string;
@@ -98,17 +104,28 @@ function isLocalLockOccupiedByOtherTab(): boolean {
   return Boolean(lock && lock.sessionId !== CLIENT_SESSION_ID);
 }
 
+async function writeCloudAdminLock(locked: boolean, token: string): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const path = 'appConfig/adminLock';
+  try {
+    await setDoc(doc(db, 'appConfig', 'adminLock'), {
+      sessionId: locked ? CLIENT_SESSION_ID : '',
+      token: locked ? token : '',
+      lastSeen: Date.now(),
+      locked,
+      authCode: ADMIN_PIN_CODE,
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 function notifyAuthAndPresenceListeners(): void {
   if (typeof window === 'undefined') return;
-  const detail: AdminPresenceState = {
-    sessionId: CLIENT_SESSION_ID,
-    isAuthenticated: isAuthenticatedMemory,
-    isYouAdmin: isAuthenticatedMemory,
-    isAdminOccupiedByOther,
-    activeUsersCount: activeConnectedUsersCount,
-  };
+  const detail: AdminPresenceState = getAdminPresenceState();
   window.dispatchEvent(new CustomEvent(ADMIN_AUTH_CHANGE_EVENT, { detail }));
   window.dispatchEvent(new CustomEvent(ADMIN_PRESENCE_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(LEGACY_ADMIN_AUTH_EVENT, { detail }));
 }
 
 export function getClientSessionId(): string {
@@ -117,12 +134,16 @@ export function getClientSessionId(): string {
 
 export function getAdminPresenceState(): AdminPresenceState {
   const localOther = isLocalLockOccupiedByOtherTab();
+  const occupied =
+    !isAuthenticatedMemory &&
+    (isAdminOccupiedByOther || isCloudAdminOccupiedByOther || localOther);
+  const totalUsers = Math.max(1, activeConnectedUsersCount);
   return {
     sessionId: CLIENT_SESSION_ID,
     isAuthenticated: isAuthenticatedMemory,
     isYouAdmin: isAuthenticatedMemory,
-    isAdminOccupiedByOther: !isAuthenticatedMemory && (isAdminOccupiedByOther || localOther),
-    activeUsersCount: activeConnectedUsersCount,
+    isAdminOccupiedByOther: occupied,
+    activeUsersCount: totalUsers,
   };
 }
 
@@ -139,6 +160,7 @@ export function setOwnerAuthenticated(authenticated: boolean): void {
   if (!authenticated) {
     currentAdminToken = null;
     clearLocalAdminLockIfOwned();
+    writeCloudAdminLock(false, '');
   }
   notifyAuthAndPresenceListeners();
 }
@@ -154,8 +176,8 @@ export async function verifyOwnerPasswordAsync(inputPassword: string): Promise<A
     };
   }
 
-  // Check if another tab in the same browser is already logged in as Admin
-  if (isLocalLockOccupiedByOtherTab()) {
+  // Check if another tab or device is already logged in as Admin
+  if (isLocalLockOccupiedByOtherTab() || isCloudAdminOccupiedByOther) {
     isAdminOccupiedByOther = true;
     notifyAuthAndPresenceListeners();
     return {
@@ -188,10 +210,12 @@ export async function verifyOwnerPasswordAsync(inputPassword: string): Promise<A
         isAuthenticatedMemory = true;
         currentAdminToken = token;
         isAdminOccupiedByOther = false;
+        isCloudAdminOccupiedByOther = false;
         if (typeof data.activeUsersCount === 'number') {
           activeConnectedUsersCount = Math.max(1, data.activeUsersCount);
         }
         writeLocalAdminLock(token);
+        await writeCloudAdminLock(true, token);
         notifyAuthAndPresenceListeners();
         return {
           ok: true,
@@ -230,7 +254,9 @@ export async function verifyOwnerPasswordAsync(inputPassword: string): Promise<A
   isAuthenticatedMemory = true;
   currentAdminToken = fallbackToken;
   isAdminOccupiedByOther = false;
+  isCloudAdminOccupiedByOther = false;
   writeLocalAdminLock(fallbackToken);
+  await writeCloudAdminLock(true, fallbackToken);
   notifyAuthAndPresenceListeners();
 
   return {
@@ -246,6 +272,9 @@ export function logoutOwnerSession(reason: 'manual' | 'page_close' = 'manual'): 
   isAuthenticatedMemory = false;
   currentAdminToken = null;
   clearLocalAdminLockIfOwned();
+  if (wasAdmin) {
+    writeCloudAdminLock(false, '');
+  }
   notifyAuthAndPresenceListeners();
 
   const payload = JSON.stringify({
@@ -279,9 +308,10 @@ export function logoutOwner(reason: 'manual' | 'page_close' = 'manual'): void {
 }
 
 async function runSessionHeartbeat(): Promise<void> {
-  // Keep local tab lock fresh if we are the active administrator
+  // Keep local tab lock and cloud lock fresh if we are the active administrator
   if (isAuthenticatedMemory && currentAdminToken) {
     writeLocalAdminLock(currentAdminToken);
+    writeCloudAdminLock(true, currentAdminToken);
   }
 
   const localOtherBefore = isLocalLockOccupiedByOtherTab();
@@ -306,7 +336,8 @@ async function runSessionHeartbeat(): Promise<void> {
     let changed = false;
 
     const nextOccupied =
-      !isAuthenticatedMemory && (Boolean(data.isAdminOccupiedByOther) || localOtherBefore);
+      !isAuthenticatedMemory &&
+      (Boolean(data.isAdminOccupiedByOther) || isCloudAdminOccupiedByOther || localOtherBefore);
     const nextUsers =
       typeof data.activeUsersCount === 'number'
         ? Math.max(1, data.activeUsersCount)
@@ -318,8 +349,25 @@ async function runSessionHeartbeat(): Promise<void> {
       changed = true;
     }
 
-    if (Array.isArray(data.catalogProducts) && data.catalogProducts.length > 0) {
-      syncCatalogFromServer(data.catalogProducts);
+    if (
+      Array.isArray(data.catalogProducts) &&
+      data.catalogProducts.length > 0 &&
+      typeof data.catalogUpdatedAt === 'number' &&
+      data.catalogUpdatedAt > 0
+    ) {
+      syncCatalogFromServer(
+        data.catalogProducts,
+        data.exchangeRate,
+        data.catalogUpdatedAt
+      );
+    }
+
+    if (
+      data.scheduleConfig &&
+      typeof data.scheduleUpdatedAt === 'number' &&
+      data.scheduleUpdatedAt > 0
+    ) {
+      syncScheduleFromServer(data.scheduleConfig, data.scheduleUpdatedAt);
     }
 
     if (changed) {
@@ -346,6 +394,40 @@ export function initAdminSessionLifecycle(): void {
     // ignore
   }
 
+  // Subscribe to cloud single-admin lock across all devices
+  if (!adminLockUnsubscribe) {
+    const lockPath = 'appConfig/adminLock';
+    adminLockUnsubscribe = onSnapshot(
+      doc(db, 'appConfig', 'adminLock'),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          if (isCloudAdminOccupiedByOther) {
+            isCloudAdminOccupiedByOther = false;
+            notifyAuthAndPresenceListeners();
+          }
+          return;
+        }
+        const data = snapshot.data();
+        const now = Date.now();
+        const isFresh =
+          Boolean(data?.locked) &&
+          typeof data?.sessionId === 'string' &&
+          data.sessionId.length > 0 &&
+          typeof data?.lastSeen === 'number' &&
+          now - data.lastSeen <= LOCAL_ADMIN_LOCK_TTL_MS;
+
+        const occupiedByOtherDevice = isFresh && data.sessionId !== CLIENT_SESSION_ID;
+        if (occupiedByOtherDevice !== isCloudAdminOccupiedByOther) {
+          isCloudAdminOccupiedByOther = occupiedByOtherDevice;
+          notifyAuthAndPresenceListeners();
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, lockPath);
+      }
+    );
+  }
+
   // Listen for cross-tab localStorage changes so tabs immediately see when Admin is occupied/released
   window.addEventListener('storage', (event) => {
     if (event.key === LOCAL_ADMIN_LOCK_KEY) {
@@ -360,10 +442,10 @@ export function initAdminSessionLifecycle(): void {
   // Initial heartbeat immediately
   runSessionHeartbeat();
 
-  // Periodic heartbeat every 3.5 seconds to keep presence & admin lock alive
+  // Periodic heartbeat every 4 seconds to keep presence & admin lock alive
   heartbeatIntervalId = window.setInterval(() => {
     runSessionHeartbeat();
-  }, 3500);
+  }, 4000);
 
   // Automatic logout when closing the tab, reloading, or navigating away
   const handlePageUnload = () => {
@@ -373,3 +455,4 @@ export function initAdminSessionLifecycle(): void {
   window.addEventListener('pagehide', handlePageUnload);
   window.addEventListener('beforeunload', handlePageUnload);
 }
+

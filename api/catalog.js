@@ -1,5 +1,7 @@
 import {
   getServerCatalogProducts,
+  getServerCatalogUpdatedAt,
+  getServerExchangeRate,
   parseRequestBody,
   setServerCatalogProducts,
 } from './_adminState.js';
@@ -18,14 +20,26 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       products: getServerCatalogProducts() || PRODUCTS,
+      exchangeRate: getServerExchangeRate(),
+      updatedAt: getServerCatalogUpdatedAt(),
     });
   }
 
   if (req.method === 'POST') {
     const body = parseRequestBody(req);
-    const updated = setServerCatalogProducts(body?.products);
-    return res.status(200).json({ ok: true, products: updated });
+    const updated = setServerCatalogProducts(
+      body?.products,
+      body?.exchangeRate,
+      body?.updatedAt
+    );
+    return res.status(200).json({
+      ok: true,
+      products: updated,
+      exchangeRate: getServerExchangeRate(),
+      updatedAt: getServerCatalogUpdatedAt(),
+    });
   }
 
   return res.status(405).json({ ok: false, message: 'Method not allowed' });
 }
+

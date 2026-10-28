@@ -41,6 +41,9 @@ interface ActiveAdminSession {
 const connectedClients = new Map<string, ConnectedClient>();
 let activeAdminSession: ActiveAdminSession | null = null;
 let serverCatalogProducts: Product[] = [...DEFAULT_PRODUCTS];
+let serverExchangeRate = 17.16;
+let serverCatalogUpdatedAt = 0;
+let serverScheduleUpdatedAt = 0;
 
 function cleanupStaleSessions(): void {
   const now = Date.now();
@@ -119,7 +122,10 @@ app.post('/api/session/heartbeat', (req: Request, res: Response) => {
     isAdminOccupiedByOther,
     activeUsersCount: Math.max(1, connectedClients.size),
     scheduleConfig: serverScheduleConfig,
+    scheduleUpdatedAt: serverScheduleUpdatedAt,
     catalogProducts: serverCatalogProducts,
+    exchangeRate: serverExchangeRate,
+    catalogUpdatedAt: serverCatalogUpdatedAt,
   });
 });
 
@@ -248,31 +254,53 @@ let serverScheduleConfig = {
 };
 
 app.get('/api/schedule', (_req: Request, res: Response) => {
-  res.json(serverScheduleConfig);
+  res.json({
+    ...serverScheduleConfig,
+    updatedAt: serverScheduleUpdatedAt,
+  });
 });
 
 app.post('/api/schedule', (req: Request, res: Response) => {
-  const { availableDays, timeSlots, maxWaitMinutes } = req.body;
+  const { availableDays, timeSlots, maxWaitMinutes, updatedAt } = req.body || {};
   if (Array.isArray(availableDays) && Array.isArray(timeSlots)) {
     serverScheduleConfig = {
       maxWaitMinutes: typeof maxWaitMinutes === 'number' ? maxWaitMinutes : 3,
       availableDays,
       timeSlots,
     };
+    serverScheduleUpdatedAt = typeof updatedAt === 'number' && updatedAt > 0 ? updatedAt : Date.now();
   }
-  res.json({ ok: true, scheduleConfig: serverScheduleConfig });
+  res.json({
+    ok: true,
+    scheduleConfig: serverScheduleConfig,
+    updatedAt: serverScheduleUpdatedAt,
+  });
 });
 
 app.get('/api/catalog', (_req: Request, res: Response) => {
-  res.json({ ok: true, products: serverCatalogProducts });
+  res.json({
+    ok: true,
+    products: serverCatalogProducts,
+    exchangeRate: serverExchangeRate,
+    updatedAt: serverCatalogUpdatedAt,
+  });
 });
 
 app.post('/api/catalog', (req: Request, res: Response) => {
-  const { products } = req.body || {};
+  const { products, exchangeRate, updatedAt } = req.body || {};
   if (Array.isArray(products) && products.length > 0) {
     serverCatalogProducts = products;
+    serverCatalogUpdatedAt = typeof updatedAt === 'number' && updatedAt > 0 ? updatedAt : Date.now();
   }
-  res.json({ ok: true, products: serverCatalogProducts });
+  if (typeof exchangeRate === 'number' && exchangeRate >= 1) {
+    serverExchangeRate = Number(exchangeRate.toFixed(2));
+  }
+  res.json({
+    ok: true,
+    products: serverCatalogProducts,
+    exchangeRate: serverExchangeRate,
+    updatedAt: serverCatalogUpdatedAt,
+  });
 });
 
 // Helper to call Gemini models with fallback between free-tier Flash models

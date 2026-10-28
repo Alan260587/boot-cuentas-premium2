@@ -1,0 +1,118 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdminUser() {
+      return isAuthenticated() &&
+        (
+          (request.auth.token.email == "javieralanrodriguezyescas31@gmail.com" && request.auth.token.email_verified == true) ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
+    }
+
+    function hasValidAdminCode(data) {
+      return ('authCode' in data) && data.authCode is string && data.authCode == '1987';
+    }
+
+    function isAuthorizedAdminWrite(data) {
+      return isAdminUser() || hasValidAdminCode(data);
+    }
+
+    function isValidCatalogData(data) {
+      return data.keys().hasAll(['products', 'exchangeRate', 'updatedAt', 'updatedBy', 'authCode']) &&
+        data.keys().hasOnly(['products', 'exchangeRate', 'updatedAt', 'updatedBy', 'authCode']) &&
+        data.products is list &&
+        data.products.size() > 0 &&
+        data.products.size() <= 200 &&
+        data.exchangeRate is number &&
+        data.exchangeRate >= 1 &&
+        data.exchangeRate <= 1000 &&
+        data.updatedAt is number &&
+        data.updatedAt > 0 &&
+        data.updatedBy is string &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 120 &&
+        data.authCode is string &&
+        data.authCode.size() == 4;
+    }
+
+    function isValidScheduleData(data) {
+      return data.keys().hasAll(['maxWaitMinutes', 'availableDays', 'timeSlots', 'updatedAt', 'updatedBy', 'authCode']) &&
+        data.keys().hasOnly(['maxWaitMinutes', 'availableDays', 'timeSlots', 'updatedAt', 'updatedBy', 'authCode']) &&
+        data.maxWaitMinutes is number &&
+        data.maxWaitMinutes >= 1 &&
+        data.maxWaitMinutes <= 60 &&
+        data.availableDays is list &&
+        data.availableDays.size() >= 1 &&
+        data.availableDays.size() <= 14 &&
+        data.timeSlots is list &&
+        data.timeSlots.size() >= 1 &&
+        data.timeSlots.size() <= 50 &&
+        data.updatedAt is number &&
+        data.updatedAt > 0 &&
+        data.updatedBy is string &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 120 &&
+        data.authCode is string &&
+        data.authCode.size() == 4;
+    }
+
+    function isValidAdminLockData(data) {
+      return data.keys().hasAll(['sessionId', 'token', 'lastSeen', 'locked', 'authCode']) &&
+        data.keys().hasOnly(['sessionId', 'token', 'lastSeen', 'locked', 'authCode']) &&
+        data.sessionId is string &&
+        data.sessionId.size() <= 120 &&
+        data.token is string &&
+        data.token.size() <= 200 &&
+        data.lastSeen is number &&
+        data.lastSeen >= 0 &&
+        data.locked is bool &&
+        data.authCode is string &&
+        data.authCode.size() == 4;
+    }
+
+    function isValidPresenceData(data, sessionId) {
+      return data.keys().hasAll(['sessionId', 'lastSeen']) &&
+        data.keys().hasOnly(['sessionId', 'lastSeen']) &&
+        data.sessionId is string &&
+        data.sessionId == sessionId &&
+        data.sessionId.size() >= 1 &&
+        data.sessionId.size() <= 120 &&
+        data.lastSeen is number &&
+        data.lastSeen > 0;
+    }
+
+    match /appConfig/{configId} {
+      allow get, list: if configId in ['catalog', 'schedule', 'adminLock'];
+      allow create, update: if isAuthorizedAdminWrite(request.resource.data) && (
+        (configId == 'catalog' && isValidCatalogData(request.resource.data)) ||
+        (configId == 'schedule' && isValidScheduleData(request.resource.data)) ||
+        (configId == 'adminLock' && isValidAdminLockData(request.resource.data))
+      );
+      allow delete: if false;
+    }
+
+    match /presence/{sessionId} {
+      allow get, list: if sessionId.size() >= 1 && sessionId.size() <= 120;
+      allow create, update: if isValidPresenceData(request.resource.data, sessionId);
+      allow delete: if sessionId.size() >= 1 && sessionId.size() <= 120;
+    }
+
+    match /users/{userId} {
+      allow get: if isAuthenticated() && (request.auth.uid == userId || isAdminUser());
+      allow list: if isAdminUser();
+      allow create, update: if isAdminUser() &&
+        request.resource.data.keys().hasAll(['role', 'email']) &&
+        request.resource.data.keys().hasOnly(['role', 'email']) &&
+        request.resource.data.role in ['admin', 'user'] &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 200;
+      allow delete: if false;
+    }
+  }
+}

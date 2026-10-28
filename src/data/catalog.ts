@@ -1,4 +1,6 @@
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Product, CountryCode } from '../types';
+import { db, handleFirestoreError, OperationType, testFirestoreConnection } from '../firebase';
 
 export const OFFICIAL_WHATSAPP_NUMBER = '+52 662 180 5354';
 export const OFFICIAL_WHATSAPP_CLEAN = '526621805354';
@@ -293,7 +295,75 @@ export const PRODUCTS: Product[] = DEFAULT_PRODUCTS;
 
 const CATALOG_STORAGE_KEY = 'sdp_catalog_products_v2';
 const EXCHANGE_RATE_STORAGE_KEY = 'sdp_exchange_rate_mxn_usd';
+const CATALOG_UPDATED_AT_KEY = 'sdp_catalog_updated_at_v2';
+const DEVICE_ID_STORAGE_KEY = 'sdp_device_sync_id_v1';
 export const DEFAULT_EXCHANGE_RATE = 17.16;
+
+let catalogRealtimeUnsubscribe: (() => void) | null = null;
+
+function getDeviceSyncId(): string {
+  if (typeof window === 'undefined') return 'server';
+  try {
+    let existing = localStorage.getItem(DEVICE_ID_STORAGE_KEY);
+    if (!existing) {
+      existing = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      localStorage.setItem(DEVICE_ID_STORAGE_KEY, existing);
+    }
+    return existing;
+  } catch {
+    return `dev_${Date.now()}`;
+  }
+}
+
+export function getCatalogLastUpdatedAt(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(CATALOG_UPDATED_AT_KEY);
+    const parsed = raw ? Number(raw) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function normalizeProductsList(products: Product[]): Product[] {
+  return products.map((p) => ({
+    id: String(p.id || `prod-${Date.now()}`),
+    name: String(p.name || 'Servicio Digital'),
+    category: String(p.category || 'Servicios Digitales'),
+    priceMxn: Number(p.priceMxn) || 0,
+    priceUsd: Number(Number(p.priceUsd || 0).toFixed(2)),
+    currencyType: p.currencyType === 'USDT' ? 'USDT' : 'USD',
+    description: String(p.description || ''),
+    highlights: Array.isArray(p.highlights) ? p.highlights.map((h) => String(h)) : [],
+    duration: String(p.duration || 'Suscripción Activa'),
+    iconName: String(p.iconName || 'Sparkles'),
+    popular: Boolean(p.popular),
+    available: p.available !== false,
+    promoBadge: p.promoBadge ? String(p.promoBadge) : '',
+    stockNote: String(p.stockNote || 'Entrega Rápida'),
+  }));
+}
+
+async function persistCatalogToCloud(
+  products: Product[],
+  exchangeRate: number,
+  updatedAt: number
+): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const path = 'appConfig/catalog';
+  try {
+    await setDoc(doc(db, 'appConfig', 'catalog'), {
+      products: normalizeProductsList(products).slice(0, 200),
+      exchangeRate: Math.min(1000, Math.max(1, Number(exchangeRate.toFixed(2)))),
+      updatedAt,
+      updatedBy: getDeviceSyncId(),
+      authCode: '1987',
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
 
 export function getSavedExchangeRate(): number {
   if (typeof window === 'undefined') return DEFAULT_EXCHANGE_RATE;
@@ -310,9 +380,24 @@ export function getSavedExchangeRate(): number {
 export function saveExchangeRate(rate: number): void {
   if (typeof window === 'undefined') return;
   try {
-    const cleanRate = Math.max(1, Number(rate.toFixed(2)));
+    const cleanRate = Math.min(1000, Math.max(1, Number(rate.toFixed(2))));
+    const updatedAt = Date.now();
+    const currentProducts = getSavedProducts();
     localStorage.setItem(EXCHANGE_RATE_STORAGE_KEY, String(cleanRate));
+    localStorage.setItem(CATALOG_UPDATED_AT_KEY, String(updatedAt));
     window.dispatchEvent(new Event('catalog_products_updated'));
+
+    persistCatalogToCloud(currentProducts, cleanRate, updatedAt);
+
+    fetch('/api/catalog', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        products: currentProducts,
+        exchangeRate: cleanRate,
+        updatedAt,
+      }),
+    }).catch(() => {});
   } catch {
     // Ignore storage errors
   }
@@ -337,15 +422,49 @@ export function getSavedProducts(): Product[] {
   }
 }
 
-export function syncCatalogFromServer(serverProducts: Product[]): void {
+export function syncCatalogFromServer(
+  serverProducts: Product[],
+  serverExchangeRate?: number,
+  serverUpdatedAt?: number
+): void {
   if (typeof window === 'undefined' || !Array.isArray(serverProducts) || serverProducts.length === 0) {
     return;
   }
   try {
+    const localUpdatedAt = getCatalogLastUpdatedAt();
+    // Only apply server snapshot if it has a valid timestamp newer than or equal to local
+    if (typeof serverUpdatedAt === 'number' && serverUpdatedAt > 0) {
+      if (localUpdatedAt > 0 && serverUpdatedAt < localUpdatedAt) {
+        return;
+      }
+    } else if (localUpdatedAt > 0) {
+      // Do not let an unversioned default server state overwrite customized local state
+      return;
+    }
+
+    const normalized = normalizeProductsList(serverProducts);
     const currentRaw = localStorage.getItem(CATALOG_STORAGE_KEY);
-    const nextRaw = JSON.stringify(serverProducts);
+    const nextRaw = JSON.stringify(normalized);
+    let changed = false;
+
     if (currentRaw !== nextRaw) {
       localStorage.setItem(CATALOG_STORAGE_KEY, nextRaw);
+      changed = true;
+    }
+
+    if (typeof serverExchangeRate === 'number' && serverExchangeRate >= 1) {
+      const cleanRate = String(Number(serverExchangeRate.toFixed(2)));
+      if (localStorage.getItem(EXCHANGE_RATE_STORAGE_KEY) !== cleanRate) {
+        localStorage.setItem(EXCHANGE_RATE_STORAGE_KEY, cleanRate);
+        changed = true;
+      }
+    }
+
+    if (typeof serverUpdatedAt === 'number' && serverUpdatedAt > 0) {
+      localStorage.setItem(CATALOG_UPDATED_AT_KEY, String(serverUpdatedAt));
+    }
+
+    if (changed) {
       window.dispatchEvent(new Event('catalog_products_updated'));
     }
   } catch {
@@ -356,19 +475,24 @@ export function syncCatalogFromServer(serverProducts: Product[]): void {
 export function saveProductsCatalog(products: Product[]): void {
   if (typeof window === 'undefined') return;
   try {
-    const normalized = products.map((p) => ({
-      ...p,
-      priceMxn: Number(p.priceMxn) || 0,
-      priceUsd: Number(Number(p.priceUsd || 0).toFixed(2)),
-      available: p.available !== false,
-      stockNote: p.stockNote || 'Entrega Rápida',
-    }));
+    const normalized = normalizeProductsList(products);
+    const currentRate = getSavedExchangeRate();
+    const updatedAt = Date.now();
+
     localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(normalized));
+    localStorage.setItem(CATALOG_UPDATED_AT_KEY, String(updatedAt));
     window.dispatchEvent(new Event('catalog_products_updated'));
+
+    persistCatalogToCloud(normalized, currentRate, updatedAt);
+
     fetch('/api/catalog', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ products: normalized }),
+      body: JSON.stringify({
+        products: normalized,
+        exchangeRate: currentRate,
+        updatedAt,
+      }),
     }).catch(() => {});
   } catch (e) {
     console.error('Error saving products catalog:', e);
@@ -378,6 +502,71 @@ export function saveProductsCatalog(products: Product[]): void {
 export function resetProductsToDefault(): Product[] {
   saveProductsCatalog(DEFAULT_PRODUCTS);
   return DEFAULT_PRODUCTS;
+}
+
+export function initCatalogRealtimeSync(): void {
+  if (typeof window === 'undefined' || catalogRealtimeUnsubscribe) return;
+
+  testFirestoreConnection();
+
+  const path = 'appConfig/catalog';
+  catalogRealtimeUnsubscribe = onSnapshot(
+    doc(db, 'appConfig', 'catalog'),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        // Seed initial cloud catalog from current device state so all devices share the same state
+        const initialProducts = getSavedProducts();
+        const initialRate = getSavedExchangeRate();
+        const initialUpdatedAt = getCatalogLastUpdatedAt() || Date.now();
+        persistCatalogToCloud(initialProducts, initialRate, initialUpdatedAt);
+        return;
+      }
+
+      const data = snapshot.data();
+      if (!data || !Array.isArray(data.products) || data.products.length === 0) return;
+
+      const cloudUpdatedAt = typeof data.updatedAt === 'number' ? data.updatedAt : Date.now();
+      const cloudRate =
+        typeof data.exchangeRate === 'number' && data.exchangeRate >= 1
+          ? data.exchangeRate
+          : DEFAULT_EXCHANGE_RATE;
+      const cloudProducts = normalizeProductsList(data.products as Product[]);
+
+      const currentRaw = localStorage.getItem(CATALOG_STORAGE_KEY);
+      const nextRaw = JSON.stringify(cloudProducts);
+      const currentRateRaw = localStorage.getItem(EXCHANGE_RATE_STORAGE_KEY);
+      const nextRateRaw = String(Number(cloudRate.toFixed(2)));
+
+      let changed = false;
+      if (currentRaw !== nextRaw) {
+        localStorage.setItem(CATALOG_STORAGE_KEY, nextRaw);
+        changed = true;
+      }
+      if (currentRateRaw !== nextRateRaw) {
+        localStorage.setItem(EXCHANGE_RATE_STORAGE_KEY, nextRateRaw);
+        changed = true;
+      }
+      localStorage.setItem(CATALOG_UPDATED_AT_KEY, String(cloudUpdatedAt));
+
+      if (changed) {
+        window.dispatchEvent(new Event('catalog_products_updated'));
+      }
+
+      // Keep local/serverless backend in sync for AI chatbot queries
+      fetch('/api/catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          products: cloudProducts,
+          exchangeRate: cloudRate,
+          updatedAt: cloudUpdatedAt,
+        }),
+      }).catch(() => {});
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
 }
 
 export const COUNTRIES: { code: CountryCode; name: string; flag: string; currency: string }[] = [
